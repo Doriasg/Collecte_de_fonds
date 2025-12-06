@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SoutientController;
 
 Route::get('/', function () {
-    return view('welcome');
+    return view('users.index');
 });
 
 Route::get('/dashboard', function () {
