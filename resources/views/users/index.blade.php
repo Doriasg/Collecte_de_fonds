@@ -12,7 +12,7 @@
             Ensemble, changeons des vies.
         </p>
 
-        <a href=" {{route('form_soutient')}}" class="cta-btn">Faites un don</a>
+        <a href=" {{route('payment.create')}}" class="cta-btn">Faites un don</a>
     </div>
 
     <img src="{{asset('images/enfant.png')}}" class="hero-img" alt="Enfant">

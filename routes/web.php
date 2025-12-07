@@ -51,4 +51,14 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+// Routes d'administration des paiements
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
+    Route::get('/payments/dashboard', [PaymentController::class, 'dashboard'])->name('payments.dashboard');
+    Route::get('/payments/{id}', [PaymentController::class, 'show'])->name('payments.show');
+    Route::get('/payments/user/{userId?}', [PaymentController::class, 'userPayments'])->name('payments.user');
+    Route::get('/payments/export', [PaymentController::class, 'export'])->name('payments.export');
+    Route::get('/payments/search', [PaymentController::class, 'search'])->name('payments.search');
+});
+
 require __DIR__.'/auth.php';

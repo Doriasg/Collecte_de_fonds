@@ -9,9 +9,12 @@ use Illuminate\Support\Facades\Validator;
 use FedaPay\FedaPay;
 use FedaPay\Transaction;
 use FedaPay\Error\InvalidRequest;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
-class PaymentController extends Controller
-{
+use Illuminate\Support\Str;
+
+class PaymentController extends Controller{
     public function create(){
         return view('payment.create');
     }
@@ -305,7 +308,7 @@ class PaymentController extends Controller
             'json_body' => $jsonBody
         ];
     }
-// Page de confirmation avec redirection automatique
+
     public function confirm($id)
     {
         $payment = Payment::findOrFail($id);
@@ -358,8 +361,7 @@ class PaymentController extends Controller
     }
 
     // Page d'échec
-    public function failed($id)
-{
+    public function failed($id){
         $payment = Payment::findOrFail($id);
         return view('payment.failed', compact('payment'));
     }
@@ -533,7 +535,7 @@ class PaymentController extends Controller
      */
     public function webhookTest(Request $request)
     {
-        Log::info('🔔 Test webhook GET appelé');
+        Log::info('Test webhook GET appelé');
         
         // Données de test simulées
         $testData = [
@@ -583,146 +585,398 @@ class PaymentController extends Controller
         return view('payment.webhook-test', compact('payments', 'testData'));
     }
     
+    public function webhook(Request $request)
+    {
+        // Log complet de la requête
+        Log::info('Webhook FedaPay appelé', [
+            'method' => $request->method(),
+            'content_type' => $request->header('Content-Type'),
+            'user_agent' => $request->userAgent(),
+            'ip' => $request->ip(),
+            'raw_data' => $request->getContent(),
+            'all_data' => $request->all()
+        ]);
+        
+        $payload = $request->all();
+        
+        if (empty($payload)) {
+            $rawContent = $request->getContent();
+            if (!empty($rawContent)) {
+                $payload = json_decode($rawContent, true) ?? [];
+            }
+        }
+        
+        Log::info('Payload webhook analysé', ['payload' => $payload]);
+        
+        if (isset($payload['id'])) {
+            $transactionId = $payload['id'];
+            $status = $payload['status'] ?? 'pending';
+            
+            return $this->handleSimpleWebhook($transactionId, $status, $payload);
+        }
+        
+        if (isset($payload['name']) && isset($payload['data']['transaction'])) {
+            $event = $payload['name'];
+            $transactionData = $payload['data']['transaction'];
+            
+            $transactionId = $transactionData['id'];
+            $status = $transactionData['status'];
+            
+            return $this->handleFullWebhook($transactionId, $status, $transactionData, $event);
+        }
+        
+        if (isset($payload['transaction'])) {
+            $transactionData = $payload['transaction'];
+            $transactionId = $transactionData['id'] ?? null;
+            $status = $transactionData['status'] ?? 'pending';
+            
+            if ($transactionId) {
+                return $this->handleSimpleWebhook($transactionId, $status, $transactionData);
+            }
+        }
+        
+        Log::error('Format webhook non reconnu', ['payload' => $payload]);
+        return response()->json(['error' => 'Format non supporté'], 400);
+    }
+
+    private function handleSimpleWebhook($transactionId, $status, $data)
+    {
+        Log::info('Traitement webhook simple', [
+            'transaction_id' => $transactionId,
+            'status' => $status,
+            'data' => $data
+        ]);
+        
+        $payment = Payment::where('transaction_id', $transactionId)->first();
+        
+        if (!$payment) {
+            Log::error('Paiement non trouvé', ['transaction_id' => $transactionId]);
+            return response()->json(['error' => 'Transaction not found'], 404);
+        }
+        
+        $oldStatus = $payment->status;
+        $payment->update([
+            'status' => $status,
+            'payment_method' => $data['mode'] ?? $data['payment_method'] ?? null
+        ]);
+        
+        Log::info('Statut mis à jour (simple)', [
+            'payment_id' => $payment->id,
+            'old_status' => $oldStatus,
+            'new_status' => $status
+        ]);
+        
+        if ($status === 'approved') {
+            $payment->markAsPaid($data['mode'] ?? $data['payment_method'] ?? null);
+            Log::info('Paiement approuvé via webhook simple', ['payment_id' => $payment->id]);
+        }
+        
+        return response()->json(['status' => 'success']);
+    }
+
+    private function handleFullWebhook($transactionId, $status, $transactionData, $event)
+    {
+        Log::info('Traitement webhook complet', [
+            'transaction_id' => $transactionId,
+            'status' => $status,
+            'event' => $event
+        ]);
+        
+        $payment = Payment::where('transaction_id', $transactionId)->first();
+        
+        if (!$payment) {
+            Log::error('Paiement non trouvé', ['transaction_id' => $transactionId]);
+            return response()->json(['error' => 'Transaction not found'], 404);
+        }
+        
+        $oldStatus = $payment->status;
+        $payment->update([
+            'status' => $status,
+            'payment_method' => $transactionData['mode'] ?? null,
+            'metadata' => array_merge(
+                $payment->metadata ?? [],
+                ['webhook_received' => now()->toISOString()]
+            )
+        ]);
+        
+        Log::info('Statut mis à jour (complet)', [
+            'payment_id' => $payment->id,
+            'old_status' => $oldStatus,
+            'new_status' => $status,
+            'event' => $event
+        ]);
+        
+        if ($status === 'approved') {
+            $payment->markAsPaid($transactionData['mode'] ?? null);
+            Log::info('Paiement approuvé via webhook complet', ['payment_id' => $payment->id]);
+        }
+        
+        return response()->json(['status' => 'success']);
+    }
+
+    public function index(Request $request){
+        
+        // Récupérer les filtres
+        $status = $request->get('status');
+        $search = $request->get('search');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $perPage = $request->get('per_page', 20);
+        
+        // Construire la requête
+        $query = Payment::with('user')->latest();
+        
+        // Appliquer les filtres
+        if ($status && $status !== 'all') {
+            if ($status === 'successful') {
+                $query->successful();
+            } elseif ($status === 'pending') {
+                $query->pending();
+            } elseif ($status === 'failed') {
+                $query->failed();
+            } elseif ($status === 'refunded') {
+                $query->refunded();
+            }
+        }
+        
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('customer_email', 'LIKE', "%{$search}%")
+                  ->orWhere('customer_phone', 'LIKE', "%{$search}%")
+                  ->orWhere('reference', 'LIKE', "%{$search}%")
+                  ->orWhere('transaction_id', 'LIKE', "%{$search}%");
+            });
+        }
+        
+        if ($dateFrom) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+        
+        if ($dateTo) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+        
+        // Récupérer les paiements
+        $payments = $query->paginate($perPage);
+        
+        // Statistiques
+        $stats = [
+            'total' => Payment::count(),
+            'successful' => Payment::successful()->count(),
+            'pending' => Payment::pending()->count(),
+            'failed' => Payment::failed()->count(),
+            'today' => Payment::today()->count(),
+            'total_amount' => Payment::successful()->sum('amount'),
+            'today_amount' => Payment::successful()->today()->sum('amount')
+        ];
+        
+        return view('payment.index', compact('payments', 'stats'));
+    }
+
+    public function show($id){
+        $payment = Payment::with('user')->findOrFail($id);
+        
+        // Charger les données FedaPay si nécessaire
+        $fedapayData = null;
+        try {
+            $this->initializeFedapay();
+            $transaction = Transaction::retrieve($payment->transaction_id);
+            $fedapayData = $transaction;
+        } catch (\Exception $e) {
+            Log::warning('Impossible de charger les données FedaPay', ['error' => $e->getMessage()]);
+        }
+        
+        return view('payment.show', compact('payment', 'fedapayData'));
+    }
+
+    public function userPayments($userId = null){
+        $user = $userId ? User::findOrFail($userId) : Auth::user();
+        
+        // Autorisation
+        $this->authorize('viewUserPayments', $user);
+        
+        $payments = Payment::where('user_id', $user->id)
+            ->latest()
+            ->paginate(15);
+            
+        $userStats = [
+            'total_payments' => Payment::where('user_id', $user->id)->count(),
+            'successful_payments' => Payment::where('user_id', $user->id)->successful()->count(),
+            'total_spent' => Payment::where('user_id', $user->id)->successful()->sum('amount'),
+            'last_payment' => Payment::where('user_id', $user->id)->latest()->first()
+        ];
+        
+        return view('payment.user', compact('payments', 'user', 'userStats'));
+    }
+
+    public function dashboard(){
+        
+        // Paiements récents
+        $recentPayments = Payment::with('user')
+            ->latest()
+            ->take(10)
+            ->get();
+        
+        // Statistiques détaillées
+        $stats = $this->getPaymentStats();
+        
+        // Graphique des paiements par jour (7 derniers jours)
+        $chartData = $this->getChartData();
+        
+        return view('payment.dashboard', compact('recentPayments', 'stats', 'chartData'));
+    }
+
+    public function export(Request $request)
+    {
+        $this->authorize('export', Payment::class);
+        
+        $payments = Payment::query();
+        
+        // Appliquer les filtres
+        if ($request->filled('start_date')) {
+            $payments->whereDate('created_at', '>=', $request->start_date);
+        }
+        
+        if ($request->filled('end_date')) {
+            $payments->whereDate('created_at', '<=', $request->end_date);
+        }
+        
+        if ($request->filled('status') && $request->status !== 'all') {
+            $payments->where('status', $request->status);
+        }
+        
+        $payments = $payments->get();
+        
+        $filename = 'paiements_' . date('Y-m-d_H-i') . '.csv';
+        
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+        
+        $callback = function() use ($payments) {
+            $file = fopen('php://output', 'w');
+            
+            // En-têtes
+            fputcsv($file, [
+                'ID',
+                'Référence',
+                'Transaction ID',
+                'Client',
+                'Email',
+                'Téléphone',
+                'Montant',
+                'Devise',
+                'Statut',
+                'Méthode',
+                'Date création',
+                'Date paiement',
+                'Remboursé'
+            ]);
+            
+            // Données
+            foreach ($payments as $payment) {
+                fputcsv($file, [
+                    $payment->id,
+                    $payment->reference,
+                    $payment->transaction_id,
+                    $payment->metadata['firstname'] . ' ' . $payment->metadata['lastname'],
+                    $payment->customer_email,
+                    $payment->customer_phone,
+                    $payment->amount,
+                    $payment->currency,
+                    $payment->status,
+                    $payment->payment_method,
+                    $payment->created_at->format('Y-m-d H:i:s'),
+                    $payment->paid_at?->format('Y-m-d H:i:s'),
+                    $payment->is_refunded ? 'Oui' : 'Non'
+                ]);
+            }
+            
+            fclose($file);
+        };
+        
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function search(Request $request)
+    {
+        $query = $request->get('q');
+        
+        if (!$query) {
+            return response()->json([]);
+        }
+        
+        $payments = Payment::where('customer_email', 'LIKE', "%{$query}%")
+            ->orWhere('customer_phone', 'LIKE', "%{$query}%")
+            ->orWhere('reference', 'LIKE', "%{$query}%")
+            ->orWhere('transaction_id', 'LIKE', "%{$query}%")
+            ->take(10)
+            ->get()
+            ->map(function($payment) {
+                return [
+                    'id' => $payment->id,
+                    'text' => "{$payment->reference} - {$payment->customer_email} - {$payment->formatted_amount}",
+                    'reference' => $payment->reference,
+                    'email' => $payment->customer_email,
+                    'amount' => $payment->formatted_amount,
+                    'status' => $payment->status,
+                    'url' => route('payments.show', $payment->id)
+                ];
+            });
+        
+        return response()->json($payments);
+    }
+
     /**
- * Webhook FedaPay - POST
- */
-public function webhook(Request $request)
-{
-    // Log complet de la requête
-    Log::info('🔔 Webhook FedaPay appelé', [
-        'method' => $request->method(),
-        'content_type' => $request->header('Content-Type'),
-        'user_agent' => $request->userAgent(),
-        'ip' => $request->ip(),
-        'raw_data' => $request->getContent(),
-        'all_data' => $request->all()
-    ]);
-    
-    // Essayer différents formats de données
-    $payload = $request->all();
-    
-    // Si les données sont vides, essayer de parser le contenu brut
-    if (empty($payload)) {
-        $rawContent = $request->getContent();
-        if (!empty($rawContent)) {
-            $payload = json_decode($rawContent, true) ?? [];
-        }
+     * Obtenir les statistiques des paiements
+     */
+    private function getPaymentStats(): array
+    {
+        return [
+            'daily' => [
+                'count' => Payment::today()->count(),
+                'amount' => Payment::successful()->today()->sum('amount')
+            ],
+            'weekly' => [
+                'count' => Payment::thisWeek()->count(),
+                'amount' => Payment::successful()->thisWeek()->sum('amount')
+            ],
+            'monthly' => [
+                'count' => Payment::thisMonth()->count(),
+                'amount' => Payment::successful()->thisMonth()->sum('amount')
+            ],
+            'methods' => Payment::successful()
+                ->selectRaw('payment_method, COUNT(*) as count, SUM(amount) as total')
+                ->groupBy('payment_method')
+                ->get()
+                ->mapWithKeys(function($item) {
+                    return [$item->payment_method => [
+                        'count' => $item->count,
+                        'total' => $item->total
+                    ]];
+                })->toArray()
+        ];
     }
-    
-    Log::info('Payload webhook analysé', ['payload' => $payload]);
-    
-    // FORMAT 1: Données directes avec transaction_id
-    if (isset($payload['id'])) {
-        $transactionId = $payload['id'];
-        $status = $payload['status'] ?? 'pending';
-        
-        return $this->handleSimpleWebhook($transactionId, $status, $payload);
-    }
-    
-    // FORMAT 2: Format standard FedaPay avec event
-    if (isset($payload['name']) && isset($payload['data']['transaction'])) {
-        $event = $payload['name'];
-        $transactionData = $payload['data']['transaction'];
-        
-        $transactionId = $transactionData['id'];
-        $status = $transactionData['status'];
-        
-        return $this->handleFullWebhook($transactionId, $status, $transactionData, $event);
-    }
-    
-    // FORMAT 3: Transaction directe dans le payload
-    if (isset($payload['transaction'])) {
-        $transactionData = $payload['transaction'];
-        $transactionId = $transactionData['id'] ?? null;
-        $status = $transactionData['status'] ?? 'pending';
-        
-        if ($transactionId) {
-            return $this->handleSimpleWebhook($transactionId, $status, $transactionData);
-        }
-    }
-    
-    Log::error('Format webhook non reconnu', ['payload' => $payload]);
-    return response()->json(['error' => 'Format non supporté'], 400);
-}
 
-/**
- * Gérer webhook simple (format court)
- */
-private function handleSimpleWebhook($transactionId, $status, $data)
-{
-    Log::info('Traitement webhook simple', [
-        'transaction_id' => $transactionId,
-        'status' => $status,
-        'data' => $data
-    ]);
-    
-    $payment = Payment::where('transaction_id', $transactionId)->first();
-    
-    if (!$payment) {
-        Log::error('Paiement non trouvé', ['transaction_id' => $transactionId]);
-        return response()->json(['error' => 'Transaction not found'], 404);
+    /**
+     * Données pour le graphique
+     */
+    private function getChartData(): array
+    {
+        $data = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i)->format('Y-m-d');
+            $count = Payment::whereDate('created_at', $date)->count();
+            $amount = Payment::whereDate('created_at', $date)->successful()->sum('amount');
+            
+            $data['labels'][] = now()->subDays($i)->format('d/m');
+            $data['counts'][] = $count;
+            $data['amounts'][] = (int) $amount;
+        }
+        
+        return $data;
     }
     
-    $oldStatus = $payment->status;
-    $payment->update([
-        'status' => $status,
-        'payment_method' => $data['mode'] ?? $data['payment_method'] ?? null
-    ]);
-    
-    Log::info('Statut mis à jour (simple)', [
-        'payment_id' => $payment->id,
-        'old_status' => $oldStatus,
-        'new_status' => $status
-    ]);
-    
-    if ($status === 'approved') {
-        $payment->markAsPaid($data['mode'] ?? $data['payment_method'] ?? null);
-        Log::info('Paiement approuvé via webhook simple', ['payment_id' => $payment->id]);
-    }
-    
-    return response()->json(['status' => 'success']);
-}
 
-/**
- * Gérer webhook complet (format FedaPay standard)
- */
-private function handleFullWebhook($transactionId, $status, $transactionData, $event)
-{
-    Log::info('Traitement webhook complet', [
-        'transaction_id' => $transactionId,
-        'status' => $status,
-        'event' => $event
-    ]);
-    
-    $payment = Payment::where('transaction_id', $transactionId)->first();
-    
-    if (!$payment) {
-        Log::error('Paiement non trouvé', ['transaction_id' => $transactionId]);
-        return response()->json(['error' => 'Transaction not found'], 404);
-    }
-    
-    $oldStatus = $payment->status;
-    $payment->update([
-        'status' => $status,
-        'payment_method' => $transactionData['mode'] ?? null,
-        'metadata' => array_merge(
-            $payment->metadata ?? [],
-            ['webhook_received' => now()->toISOString()]
-        )
-    ]);
-    
-    Log::info('Statut mis à jour (complet)', [
-        'payment_id' => $payment->id,
-        'old_status' => $oldStatus,
-        'new_status' => $status,
-        'event' => $event
-    ]);
-    
-    if ($status === 'approved') {
-        $payment->markAsPaid($transactionData['mode'] ?? null);
-        Log::info('✅ Paiement approuvé via webhook complet', ['payment_id' => $payment->id]);
-    }
-    
-    return response()->json(['status' => 'success']);
-}
 }
