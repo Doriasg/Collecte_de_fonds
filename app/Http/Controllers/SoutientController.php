@@ -11,8 +11,14 @@ use Illuminate\Support\Facades\Validator;
 
 class SoutientController extends Controller
 {
+    private $fedapayMode;
+    private $isLiveMode = false;
+
     public function __construct()
     {
+        $this->fedapayMode = env('FEDAPAY_MODE', 'sandbox');
+        $this->isLiveMode = $this->fedapayMode === 'live';
+        
         $this->initializeFedaPay();
     }
 
@@ -20,123 +26,155 @@ class SoutientController extends Controller
     {
         try {
             $secretKey = env('FEDAPAY_SECRET_KEY');
-            $mode = env('FEDAPAY_MODE', 'sandbox');
             
             if (empty($secretKey)) {
-                throw new \Exception('Clé secrète FedaPay non configurée');
+                throw new \Exception('Clé FedaPay non configurée dans .env');
             }
             
+            // Vérifier si c'est une clé sandbox ou live
+            $keyType = strpos($secretKey, 'sk_sandbox_') === 0 ? 'sandbox' : 
+                      (strpos($secretKey, 'sk_live_') === 0 ? 'live' : 'inconnu');
+            
+            if ($keyType !== $this->fedapayMode) {
+                Log::warning('Incohérence clé/mode', [
+                    'key_type' => $keyType,
+                    'config_mode' => $this->fedapayMode
+                ]);
+            }
+            
+            // Configuration FedaPay selon la documentation officielle
             FedaPay::setApiKey($secretKey);
-            FedaPay::setEnvironment($mode);
+            FedaPay::setEnvironment($this->fedapayMode);
             
-            // Pour le mode sandbox
-            if ($mode === 'sandbox') {
-                FedaPay::setCustomBaseUrl('https://sandbox-api.fedapay.com');
-            }
-            
-            Log::info('FedaPay initialisé', ['mode' => $mode]);
+            Log::info('FedaPay initialisé', [
+                'mode' => $this->fedapayMode,
+                'key_type' => $keyType,
+                'is_live' => $this->isLiveMode
+            ]);
             
         } catch (\Exception $e) {
-            Log::error('Erreur initialisation FedaPay: ' . $e->getMessage());
+            Log::critical('Échec initialisation FedaPay: ' . $e->getMessage());
         }
     }
 
     public function soutenir()
     {
-        return view('form_soutient');
+        return view('form_soutient', [
+            'isLiveMode' => $this->isLiveMode,
+            'fedapayMode' => $this->fedapayMode
+        ]);
     }
 
     public function processPayment(Request $request)
     {
-        // Valider les données
+        // Valider les données de base
         $validator = Validator::make($request->all(), [
-            'full_name' => 'required|string|min:3|max:255',
-            'email' => 'required|email|max:255',
+            'full_name' => 'required|string|min:2|max:100',
+            'email' => 'required|email|max:100',
             'phone' => 'required|string|max:20',
-            'amount' => 'required|numeric|min:100|max:1000000',
+            'amount' => 'required|numeric|min:100|max:500000',
+        ], [
+            'phone.max' => 'Le numéro ne doit pas dépasser 20 caractères',
+            'amount.min' => 'Le montant minimum est de 100 FCFA',
+            'amount.max' => 'Le montant maximum est de 500,000 FCFA',
         ]);
 
         if ($validator->fails()) {
             return redirect()->back()
                 ->withErrors($validator)
-                ->withInput();
+                ->withInput()
+                ->with('error', 'Veuillez corriger les erreurs ci-dessous');
         }
 
+        $data = $validator->validated();
+        
+        // Log initial
+        Log::info('Début traitement paiement', [
+            'email' => $data['email'],
+            'mode' => $this->fedapayMode
+        ]);
+
         try {
-            $data = $validator->validated();
+            // 1. Préparer les données
+            $phone = $this->formatPhoneForFedaPay($data['phone']);
+            $names = $this->splitName($data['full_name']);
             
-            // Log pour debug
-            Log::info('Données reçues', $data);
+            // Pour le sandbox, utiliser un email unique
+            $email = $data['email'];
+            if ($this->fedapayMode === 'sandbox') {
+                $email = 'test_' . time() . '_' . $data['email'];
+            }
             
-            // Nettoyer et valider le téléphone
-            $phone = $this->cleanPhoneNumber($data['phone']);
-            
-            
-            // Préparer les noms
-            $names = $this->prepareNames($data['full_name']);
-            
-            // Créer le client
-            Log::info('Création client FedaPay', [
-                'email' => $data['email'],
-                'phone' => $phone
+            // 2. Créer le client
+            Log::info('Création client', [
+                'email' => $email,
+                'phone' => $phone,
+                'firstname' => $names['firstname'],
+                'lastname' => $names['lastname']
             ]);
             
             $customer = Customer::create([
                 'firstname' => $names['firstname'],
                 'lastname' => $names['lastname'],
-                'email' => $data['email'],
+                'email' => $email,
                 'phone_number' => [
                     'number' => $phone,
                     'country' => 'bj'
                 ]
             ]);
             
-            Log::info('Client créé', ['customer_id' => $customer->id]);
+            Log::info('✅ Client créé', ['customer_id' => $customer->id]);
             
-            // Créer la transaction
+            // 3. Créer la transaction
             $transaction = Transaction::create([
-                'description' => 'Donation - ' . $data['full_name'],
-                'amount' => intval($data['amount']),
+                'description' => 'Donation - ' . substr($data['full_name'], 0, 50),
+                'amount' => (int) $data['amount'],
                 'currency' => ['iso' => 'XOF'],
                 'callback_url' => route('payment.callback'),
-                'customer' => $customer->id,
-                'include' => ['customer']
+                'customer' => $customer->id
             ]);
             
-            Log::info('Transaction créée', [
-                'transaction_id' => $transaction->id,
+            Log::info('✅ Transaction créée', [
+                'id' => $transaction->id,
                 'reference' => $transaction->reference
             ]);
             
-            // Générer le token
+            // 4. Générer le token
             $token = $transaction->generateToken();
             
             if (empty($token->url)) {
                 throw new \Exception('URL de paiement non générée');
             }
             
-            // Rediriger vers FedaPay
+            Log::info('🎯 Redirection vers FedaPay', [
+                'url' => $token->url,
+                'transaction_id' => $transaction->id
+            ]);
+            
             return redirect($token->url);
             
         } catch (\FedaPay\Error\ApiConnection $e) {
-            Log::error('Erreur connexion API FedaPay: ' . $e->getMessage());
-            
-            // Message plus détaillé
-            $errorMessage = $this->parseFedaPayError($e->getMessage());
+            Log::error('❌ Erreur API FedaPay', [
+                'message' => $e->getMessage(),
+                'mode' => $this->fedapayMode
+            ]);
             
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Erreur FedaPay: ' . $errorMessage);
+                ->with('error', 'Erreur FedaPay: ' . $this->parseApiError($e->getMessage()));
                 
         } catch (\FedaPay\Error\InvalidRequest $e) {
-            Log::error('Requête invalide FedaPay: ' . $e->getMessage());
+            Log::error('❌ Requête invalide FedaPay', [
+                'message' => $e->getMessage()
+            ]);
             
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Données invalides pour FedaPay: ' . $e->getMessage());
+                ->with('error', 'Données invalides: ' . $e->getMessage());
                 
         } catch (\Exception $e) {
-            Log::error('Erreur générale: ' . $e->getMessage(), [
+            Log::error('❌ Erreur générale', [
+                'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
             
@@ -146,69 +184,104 @@ class SoutientController extends Controller
         }
     }
 
-    private function cleanPhoneNumber($phone)
+    private function formatPhoneForFedaPay($phone)
     {
-        // Supprimer tous les caractères non numériques sauf +
+        // Nettoyer
         $phone = preg_replace('/[^0-9+]/', '', $phone);
         
-        // Si le numéro commence par 0 et a 9 chiffres
-        if (strlen($phone) === 9 && $phone[0] === '0') {
-            return '+229' . substr($phone, 1);
+        // Convertir en format FedaPay standard
+        if (preg_match('/^0(\d{8})$/', $phone, $matches)) {
+            return '+229' . $matches[1]; // 0XXXXXXXX → +229XXXXXXXX
         }
         
-        // Si le numéro a 8 chiffres (sans le 0 initial)
-        if (strlen($phone) === 8 && is_numeric($phone)) {
-            return '+229' . $phone;
+        if (preg_match('/^(\d{8})$/', $phone, $matches)) {
+            return '+229' . $matches[1]; // XXXXXXXX → +229XXXXXXXX
         }
         
-        // Si commence par 229 (sans +)
-        if (strlen($phone) === 11 && strpos($phone, '229') === 0) {
-            return '+' . $phone;
+        if (preg_match('/^229(\d{8})$/', $phone, $matches)) {
+            return '+229' . $matches[1]; // 229XXXXXXXX → +229XXXXXXXX
         }
         
-        // Si commence par 00229
-        if (strlen($phone) === 13 && strpos($phone, '00229') === 0) {
-            return '+229' . substr($phone, 5);
+        if (preg_match('/^\+229(\d{8})$/', $phone, $matches)) {
+            return $phone; // Déjà bon format
         }
         
-        // Retourner tel quel
-        return $phone;
+        throw new \Exception(
+            'Format téléphone invalide. ' .
+            'Fourni: ' . $phone . '. ' .
+            'Attendu: +229XXXXXXXX, 0XXXXXXXX, ou XXXXXXXX'
+        );
     }
 
-    private function isValidBeninPhone($phone)
+    private function splitName($fullName)
     {
-        // Format attendu: +229XXXXXXXXX (où X est un chiffre)
-        return preg_match('/^\+229[0-9]{8}$/', $phone) === 1;
-    }
-
-    private function prepareNames($fullName)
-    {
-        $parts = explode(' ', trim($fullName), 2);
+        $fullName = trim($fullName);
+        $parts = explode(' ', $fullName, 2);
         
         return [
-            'firstname' => $parts[0] ?? 'Client',
-            'lastname' => $parts[1] ?? '.'
+            'firstname' => $parts[0] ?? 'Donateur',
+            'lastname' => $parts[1] ?? 'Anonyme'
         ];
     }
 
-    private function parseFedaPayError($errorMessage)
+    private function parseApiError($errorMessage)
     {
-        // Messages d'erreur courants FedaPay
-        $errors = [
-            'la création du client a échoué' => 'Échec de création du client. Vérifiez les données (email et téléphone).',
-            'Invalid email' => 'Email invalide.',
-            'Invalid phone number' => 'Numéro de téléphone invalide.',
-            'phone_number is required' => 'Le numéro de téléphone est requis.',
-            'email is required' => 'L\'email est requis.',
-        ];
-        
-        foreach ($errors as $key => $message) {
-            if (stripos($errorMessage, $key) !== false) {
-                return $message;
-            }
+        if (strpos($errorMessage, 'HTTP response code was 500') !== false) {
+            return 'Erreur serveur FedaPay. ' . 
+                   ($this->isLiveMode ? 
+                    'Vérifiez votre compte en mode production.' : 
+                    'Réessayez en mode sandbox.');
         }
         
-        return $errorMessage;
+        if (strpos($errorMessage, 'json_last_error() was 4') !== false) {
+            return 'Réponse invalide de FedaPay.';
+        }
+        
+        if (strpos($errorMessage, 'la création du client a échoué') !== false) {
+            return 'Échec création client. Vérifiez email/téléphone.';
+        }
+        
+        return substr($errorMessage, 0, 100);
+    }
+
+    // Route de test simple
+    public function testFedaPay()
+    {
+        try {
+            // Test simple de connexion
+            $account = \FedaPay\Account::all(['per_page' => 1]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => '✅ Connexion FedaPay OK',
+                'mode' => $this->fedapayMode,
+                'account' => [
+                    'id' => $account->first()->id ?? 'N/A',
+                    'name' => $account->first()->name ?? 'N/A'
+                ]
+            ]);
+            
+        } 
+        catch (\FedaPay\Error\Authentication $e) {
+            return response()->json([
+                'success' => false,
+                'message' => '❌ Erreur d\'authentification',
+                'error' => $e->getMessage(),
+                'config' => [
+                    'mode' => $this->fedapayMode,
+                    'has_key' => !empty(env('FEDAPAY_SECRET_KEY')),
+                    'key_prefix' => env('FEDAPAY_SECRET_KEY') ? substr(env('FEDAPAY_SECRET_KEY'), 0, 15) . '...' : 'N/A'
+                ]
+            ], 401);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => '❌ Erreur FedaPay',
+                'error' => $e->getMessage(),
+                'mode' => $this->fedapayMode
+            ], 500);
+        }
     }
 
     public function paymentCallback(Request $request)
@@ -217,73 +290,30 @@ class SoutientController extends Controller
             $transactionId = $request->input('id') ?? $request->input('transaction_id');
             
             if (!$transactionId) {
-                Log::warning('Callback sans ID', $request->all());
                 return view('payment.failed', [
-                    'message' => 'Transaction non trouvée'
+                    'message' => 'Transaction introuvable'
                 ]);
             }
             
-            // Récupérer la transaction
-            $transaction = Transaction::retrieve($transactionId, [
-                'include' => ['customer']
-            ]);
-            
-            Log::info('Callback statut', [
-                'id' => $transaction->id,
-                'status' => $transaction->status
-            ]);
+            $transaction = Transaction::retrieve($transactionId);
             
             if ($transaction->status === 'approved') {
                 return view('payment.success', [
                     'transaction' => $transaction,
-                    'customer' => $transaction->customer
+                    'message' => 'Merci pour votre don!'
                 ]);
             } else {
                 return view('payment.failed', [
-                    'message' => 'Paiement non approuvé. Statut: ' . $transaction->status
+                    'message' => 'Paiement ' . $transaction->status
                 ]);
             }
             
         } catch (\Exception $e) {
-            Log::error('Erreur callback: ' . $e->getMessage());
+            Log::error('Erreur callback', ['error' => $e->getMessage()]);
+            
             return view('payment.failed', [
-                'message' => 'Erreur lors de la vérification'
+                'message' => 'Erreur lors du traitement'
             ]);
-        }
-    }
-
-    // Route pour tester directement
-    public function testFedaPay()
-    {
-        try {
-            // Test simple de création de client
-            $customer = Customer::create([
-                'firstname' => 'Test',
-                'lastname' => 'API',
-                'email' => 'testapi@example.com',
-                'phone_number' => [
-                    'number' => '+22994119476',
-                    'country' => 'bj'
-                ]
-            ]);
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'FedaPay fonctionne!',
-                'customer_id' => $customer->id
-            ]);
-            
-        } 
-        catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'config' => [
-                    'has_key' => !empty(env('FEDAPAY_SECRET_KEY')),
-                    'mode' => env('FEDAPAY_MODE'),
-                    'key_prefix' => substr(env('FEDAPAY_SECRET_KEY'), 0, 20) . '...'
-                ]
-            ], 500);
         }
     }
 }

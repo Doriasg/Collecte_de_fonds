@@ -35,10 +35,12 @@ return [
         ],
     ],
 
+    // config/services.php
     'fedapay' => [
         'secret_key' => env('FEDAPAY_SECRET_KEY'),
         'public_key' => env('FEDAPAY_PUBLIC_KEY'),
-        'mode' => env('FEDAPAY_MODE', 'live'),
+        'environment' => env('FEDAPAY_ENVIRONMENT', 'live'),
+        'webhook_secret' => env('FEDAPAY_WEBHOOK_SECRET'),
     ],
 
 ];

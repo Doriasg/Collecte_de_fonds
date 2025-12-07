@@ -12,7 +12,7 @@
             Ensemble, changeons des vies.
         </p>
 
-        <a href=" {{route('paiement')}}" class="cta-btn">Faites un don</a>
+        <a href=" {{route('form_soutient')}}" class="cta-btn">Faites un don</a>
     </div>
 
     <img src="{{asset('images/enfant.png')}}" class="hero-img" alt="Enfant">
@@ -27,7 +27,7 @@
         <p>
             Nous acceptons vos <strong>dons en nature</strong> : vivres, cahiers, livres, vêtements… ou <strong>dons en espèces</strong> pour contribuer à leur bonheur.
         </p>
-        <a href="{{route('paiement')}}" class="cta-btn">Faire un don</a>
+        <a href="{{route('payment.create')}}" class="cta-btn">Faire un don</a>
         <p class="vote-text">
             Votre soutien compte ! <strong>Faites un don et participez à changer des vies !</strong>
         </p>
