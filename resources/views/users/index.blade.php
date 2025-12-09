@@ -12,7 +12,7 @@
             Ensemble, changeons des vies.
         </p>
 
-        <a href=" {{route('paiement')}}" class="cta-btn">Faites un don</a>
+        <a href=" {{route('payment.create')}}" class="cta-btn">Faites un don</a>
     </div>
 
     <img src="{{asset('images/enfant.png')}}" class="hero-img" alt="Enfant">
@@ -22,13 +22,14 @@
     <div class="container">
         <h2 style="color: #FFC800;">C'est quoi Mission sourire ?</h2>
         <p>
+
           <strong>Mission Sourires</strong>  est une action solidaire menée pour offrir de la joie, du soutien et un peu de douceur aux enfants de l’orphelinat de Nabouba, surtout pendant la période de Noël.
 
 À travers des cadeaux, des vivres, des fournitures scolaires, des vêtements et d’autres dons, nous voulons leur rappeler qu’ils comptent, qu’ils sont aimés et qu’ils méritent de sourire comme tous les enfants du monde.
 
 C’est aussi une occasion de sensibiliser, d’encourager l’entraide et de montrer qu’ensemble, nous pouvons changer quelque chose — même avec un geste simple.</p>
         <a href="{{route('paiement')}}" class="cta-btn">Cotas actuel</a>
-        <p class="vote-text">
+  <p class="vote-text">
             Votre soutien compte ! <strong>Faites un don et participez à changer des vies !</strong>
         </p>
     </div>
