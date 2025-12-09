@@ -19,7 +19,7 @@
         <h1 class="logo">Mission Sourires</h1>
 
 
-        <a href="/don" class="mobilemoney-btn">Contacter</a>
+        <a href="#contact" class="mobilemoney-btn">Contacter</a>
     </nav>
 </header>
 
@@ -28,12 +28,13 @@
     @yield('content')
 </main>
 
-<footer>
-    <p>&copy; Doriane ASSOGBA- HOUNDOKINNOU DIègue. Tous droits réservés.</p>
+<footer id="contact">
+    <p>&copy; Doriane ASSOGBA- HOUNDOKINNOU DIègue. Tous droits réservés. <br>
+     0159090501 / 0194119476</p>
 </footer>
 <script>
     // Date cible pour la collecte
-    const targetDate = new Date("2025-12-25T00:00:00").getTime();
+    const targetDate = new Date("2025-12-24T00:00:00").getTime();
 
     const countdown = () => {
         const now = new Date().getTime();
@@ -58,6 +59,9 @@
     const timer = setInterval(countdown, 1000);
     countdown();
 </script>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
 <script>
