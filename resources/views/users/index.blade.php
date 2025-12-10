@@ -28,6 +28,12 @@
             Nous acceptons vos <strong>dons en nature</strong> : vivres, cahiers, livres, vêtements… ou <strong>dons en espèces</strong> pour contribuer à leur bonheur.
         </p>
         <a href="{{route('payment.create')}}" class="cta-btn">Faire un don</a>
+          <strong>Mission Sourires</strong>  est une action solidaire menée pour offrir de la joie, du soutien et un peu de douceur aux enfants de l’orphelinat de Nabouba, surtout pendant la période de Noël.
+
+À travers des cadeaux, des vivres, des fournitures scolaires, des vêtements et d’autres dons, nous voulons leur rappeler qu’ils comptent, qu’ils sont aimés et qu’ils méritent de sourire comme tous les enfants du monde.
+
+C’est aussi une occasion de sensibiliser, d’encourager l’entraide et de montrer qu’ensemble, nous pouvons changer quelque chose — même avec un geste simple.</p>
+        <a href="{{route('payment.create')}}" class="cta-btn">Cotas actuel</a>
         <p class="vote-text">
             Votre soutien compte ! <strong>Faites un don et participez à changer des vies !</strong>
         </p>
