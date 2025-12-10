@@ -1153,9 +1153,6 @@ class PaymentController extends Controller{
             ->with('message', $this->getStatusMessage($payment->status));
     }
 
-    /**
-     * Message selon le statut
-     */
     private function getStatusMessage($status)
     {
         $messages = [
@@ -1168,11 +1165,7 @@ class PaymentController extends Controller{
         return $messages[$status] ?? 'Transaction terminée.';
     }
 
-    /**
-     * Gérer le callback GET de FedaPay (redirection après paiement)
-     */
-    private function handleFedapayGetCallback(Request $request)
-    {
+    private function handleFedapayGetCallback(Request $request){
         $transactionId = $request->get('id');
         $status = $request->get('status');
         $close = $request->get('close', false);

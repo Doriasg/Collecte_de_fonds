@@ -397,10 +397,108 @@
             margin: 0;
             flex: 1;
         }
+
+        /* Modal d'avertissement HTTPS */
+        .https-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .https-modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .https-modal-icon {
+            font-size: 50px;
+            color: #ffcc00;
+            margin-bottom: 20px;
+        }
+
+        .https-modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--secondary-color);
+            margin-bottom: 10px;
+        }
+
+        .https-modal-message {
+            color: var(--text-color);
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .https-modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .https-modal-btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            flex: 1;
+        }
+
+        .https-modal-cancel {
+            background: #f0f0f0;
+            color: var(--text-color);
+        }
+
+        .https-modal-continue {
+            background: var(--primary-color);
+            color: var(--secondary-color);
+        }
+
+        .https-modal-btn:hover {
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 
 <body>
+
+<!-- Modal d'avertissement HTTPS -->
+<div id="httpsModal" class="https-modal">
+    <div class="https-modal-content">
+        <div class="https-modal-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="https-modal-title">
+            ⚠️ Connexion non sécurisée
+        </div>
+        <div class="https-modal-message">
+            Vous êtes sur le point d'envoyer des informations sensibles via une connexion non sécurisée (HTTP).<br><br>
+            Pour votre sécurité, nous allons rediriger automatiquement vers une connexion sécurisée (HTTPS).
+        </div>
+        <div class="https-modal-buttons">
+            <button type="button" id="httpsCancel" class="https-modal-btn https-modal-cancel">
+                Annuler
+            </button>
+            <button type="button" id="httpsContinue" class="https-modal-btn https-modal-continue">
+                Continuer en sécurité
+            </button>
+        </div>
+    </div>
+</div>
 
 <div class="container">
     <div class="card">
@@ -589,7 +687,107 @@
             email: document.getElementById('email-error')
         };
 
+        // Éléments pour le modal HTTPS
+        const httpsModal = document.getElementById('httpsModal');
+        const httpsCancel = document.getElementById('httpsCancel');
+        const httpsContinue = document.getElementById('httpsContinue');
+
         let isFormValid = false;
+        let originalFormAction = form.action;
+
+        // ==== CORRECTION HTTPS - DÉBUT ====
+        function checkAndForceHttps() {
+            // Vérifier si nous sommes en HTTP et pas en localhost
+            const isHttp = window.location.protocol === 'http:';
+            const isLocal = window.location.hostname === 'localhost' || 
+                           window.location.hostname === '127.0.0.1' ||
+                           window.location.hostname.startsWith('192.168.');
+            
+            // Si en HTTP et pas en local, forcer HTTPS
+            if (isHttp && !isLocal) {
+                showHttpsWarning();
+                return false; // Empêcher la soumission normale
+            }
+            
+            // Mettre à jour l'action du formulaire pour HTTPS si nécessaire
+            if (isHttp && !isLocal) {
+                form.action = form.action.replace('http://', 'https://');
+            }
+            
+            return true; // Autoriser la soumission
+        }
+
+        function showHttpsWarning() {
+            httpsModal.style.display = 'flex';
+            
+            // Empêcher le scroll du body
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideHttpsWarning() {
+            httpsModal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        // Gestion des boutons du modal
+        httpsCancel.addEventListener('click', function() {
+            hideHttpsWarning();
+            // Réactiver le bouton de soumission
+            submitBtn.classList.remove('btn-loading');
+            submitBtn.disabled = false;
+        });
+
+        httpsContinue.addEventListener('click', function() {
+            hideHttpsWarning();
+            
+            // Rediriger vers la version HTTPS de la page
+            const httpsUrl = window.location.href.replace('http://', 'https://');
+            
+            // Si l'utilisateur confirme, rediriger vers HTTPS
+            if (httpsUrl !== window.location.href) {
+                window.location.href = httpsUrl;
+            } else {
+                // Si déjà sur HTTPS, soumettre le formulaire
+                submitFormWithHttps();
+            }
+        });
+
+        function submitFormWithHttps() {
+            // Récupérer les données du formulaire
+            const formData = new FormData(form);
+            
+            // Changer l'action en HTTPS
+            const httpsAction = form.action.replace('http://', 'https://');
+            
+            // Créer une requête fetch pour soumettre en HTTPS
+            fetch(httpsAction, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html, application/xhtml+xml'
+                }
+            })
+            .then(response => {
+                // Si c'est une redirection, suivre la redirection
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    return response.text().then(html => {
+                        // Si la réponse est du HTML, remplacer le document
+                        document.open();
+                        document.write(html);
+                        document.close();
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                // Fallback: rediriger vers la page HTTPS et laisser l'utilisateur soumettre à nouveau
+                window.location.href = httpsAction + '?' + new URLSearchParams(formData).toString();
+            });
+        }
+        // ==== CORRECTION HTTPS - FIN ====
 
         // Validation en temps réel
         function validateField(fieldName, value) {
@@ -665,7 +863,7 @@
             let formValid = true;
             
             for (const fieldName in inputs) {
-                if (fieldName !== 'description') { // Description est optionnel
+                if (fieldName !== 'description') {
                     const isValid = validateField(fieldName, inputs[fieldName].value);
                     if (!isValid) formValid = false;
                 }
@@ -673,6 +871,8 @@
             
             isFormValid = formValid;
             submitBtn.disabled = !formValid;
+            
+            return formValid;
         }
 
         // Événements d'input
@@ -705,8 +905,10 @@
 
         // Soumission du formulaire
         form.addEventListener('submit', function(e) {
+            // Empêcher la soumission normale
+            e.preventDefault();
+            
             if (!isFormValid) {
-                e.preventDefault();
                 return;
             }
 
@@ -715,26 +917,26 @@
             submitBtn.disabled = true;
             
             // Validation finale avant envoi
-            let finalValidation = true;
-            for (const fieldName in inputs) {
-                if (fieldName !== 'description') {
-                    if (!validateField(fieldName, inputs[fieldName].value)) {
-                        finalValidation = false;
-                    }
-                }
-            }
-
-            if (!finalValidation) {
+            if (!validateForm()) {
                 submitBtn.classList.remove('btn-loading');
                 submitBtn.disabled = false;
-                e.preventDefault();
                 
                 // Scroll vers la première erreur
                 const firstError = document.querySelector('.invalid');
                 if (firstError) {
                     firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
+                return;
             }
+
+            // Vérifier et forcer HTTPS si nécessaire
+            if (!checkAndForceHttps()) {
+                // Si HTTPS est requis, attendre la confirmation de l'utilisateur
+                return;
+            }
+
+            // Si HTTPS est OK, soumettre le formulaire
+            submitFormWithHttps();
         });
 
         // Auto-remplissage du téléphone si déjà dans l'URL
@@ -751,9 +953,22 @@
             let value = parseInt(e.target.value);
             if (value < 100) value = 100;
             if (value > 10000000) value = 10000000;
-            e.target.value = Math.floor(value / 100) * 100; // Arrondir à la centaine
+            e.target.value = Math.floor(value / 100) * 100;
             validateField('amount', e.target.value);
             validateForm();
+        });
+
+        // Vérifier HTTPS au chargement de la page
+        window.addEventListener('load', function() {
+            const isHttp = window.location.protocol === 'http:';
+            const isLocal = window.location.hostname === 'localhost' || 
+                           window.location.hostname === '127.0.0.1';
+            
+            if (isHttp && !isLocal) {
+                // Rediriger automatiquement vers HTTPS
+                const httpsUrl = window.location.href.replace('http://', 'https://');
+                window.location.replace(httpsUrl);
+            }
         });
     });
 </script>

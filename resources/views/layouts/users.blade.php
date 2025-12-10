@@ -18,7 +18,6 @@
     <nav class="navbar">
         <h1 class="logo">Mission Sourires</h1>
 
-
         <a href="{{route('payment.create')}}" class="mobilemoney-btn">Faire un don</a>
     </nav>
 </header>
