@@ -2,13 +2,12 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\indexController;
 use Illuminate\Support\Facades\Route;
 
 // Route d'accueil
-Route::get('/', function () {
-    return view('users.index');
-});
 
+Route::get('/', [indexController::class, 'index'])->name('home');
 Route::get('/paiement', [PaymentController::class, 'create'])->name('payment.create');
 
 

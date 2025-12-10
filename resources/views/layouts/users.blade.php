@@ -30,7 +30,7 @@
 
 <footer id="contact">
     <p>&copy; Doriane ASSOGBA- HOUNDOKINNOU DIègue. Tous droits réservés. <br>
-     0159090501 / 0194119476</p>
+    Contactez nous via whatsApp au 0159090501 ou 0194119476</p>
 </footer>
 <script>
     // Date cible pour la collecte

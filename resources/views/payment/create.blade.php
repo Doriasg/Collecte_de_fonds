@@ -1,124 +1,188 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paiement en ligne</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paiement en ligne</title>
+
+<link rel="stylesheet" href="/css/payment.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-        <div class="max-w-md mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-            <!-- En-tête -->
-            <div class="bg-blue-600 px-6 py-4">
-                <h1 class="text-2xl font-bold text-white">
-                    <i class="fas fa-lock mr-2"></i>Paiement Sécurisé
-                </h1>
-                <p class="text-blue-100 text-sm mt-1">Remplissez le formulaire pour procéder au paiement</p>
+
+<body>
+
+<div class="container">
+
+    <div class="card">
+
+        <div class="header">
+            <h1><i class="fas fa-lock"></i> Paiement Sécurisé</h1>
+            <p>Remplissez le formulaire pour procéder au paiement</p>
+        </div>
+
+        <form action="{{ route('payment.process') }}" method="POST" class="form">
+            @csrf
+
+            <div class="form-group">
+                <label><i class="fas fa-money-bill-wave"></i> Montant (FCFA)</label>
+                <input type="number" name="amount" value="{{ old('amount',1000) }}">
             </div>
 
-            <!-- Formulaire -->
-            <form action="{{ route('payment.process') }}" method="POST" class="p-6">
-                @csrf
-                
-                @if(session('error'))
-                    <div class="mb-4 p-3 bg-red-100 text-red-700 rounded">
-                        <i class="fas fa-exclamation-circle mr-2"></i>
-                        {{ session('error') }}
-                    </div>
-                @endif
+            <div class="row">
 
-                <!-- Montant -->
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2">
-                        <i class="fas fa-money-bill-wave mr-2"></i>Montant (FCFA)
-                    </label>
-                    <input type="number" name="amount" 
-                           value="{{ old('amount', 1000) }}"
-                           min="100" step="100"
-                           class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                           required>
-                    @error('amount')
-                        <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                    @enderror
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> Prénom</label>
+                    <input type="text" name="firstname" value="{{ old('firstname') }}">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> Nom</label>
+                    <input type="text" name="lastname" value="{{ old('lastname') }}">
                 </div>
 
-                <!-- Informations personnelles -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label class="block text-gray-700 text-sm font-bold mb-2">
-                            <i class="fas fa-user mr-2"></i>Prénom
-                        </label>
-                        <input type="text" name="firstname" 
-                               value="{{ old('firstname', auth()->user()->firstname ?? '') }}"
-                               class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                               required>
-                    </div>
-                    <div>
-                        <label class="block text-gray-700 text-sm font-bold mb-2">
-                            <i class="fas fa-user mr-2"></i>Nom
-                        </label>
-                        <input type="text" name="lastname" 
-                               value="{{ old('lastname', auth()->user()->lastname ?? '') }}"
-                               class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                               required>
-                    </div>
-                </div>
+            </div>
 
-                <!-- Contact -->
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2">
-                        <i class="fas fa-envelope mr-2"></i>Email
-                    </label>
-                    <input type="email" name="email" 
-                           value="{{ old('email', auth()->user()->email ?? '') }}"
-                           class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                           required>
-                </div>
+            <div class="form-group">
+                <label><i class="fas fa-envelope"></i> Email</label>
+                <input type="email" name="email" value="{{ old('email') }}">
+            </div>
 
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2">
-                        <i class="fas fa-phone mr-2"></i>Téléphone
-                    </label>
-                    <div class="flex">
-                        <div class="bg-gray-100 px-3 py-2 border border-r-0 border-gray-300 rounded-l">
-                            +229
-                        </div>
-                        <input type="text" name="phone" 
-                               value="{{ old('phone', auth()->user()->phone ?? '') }}"
-                               placeholder="90123456"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-r focus:outline-none focus:ring-2 focus:ring-blue-500"
-                               required>
-                    </div>
-                    <p class="text-gray-500 text-xs mt-1">Format: +22990123456</p>
+            <div class="form-group">
+                <label><i class="fas fa-phone"></i> Téléphone</label>
+                <div class="phone">
+                    <span>+229</span>
+                    <input type="text" name="phone" placeholder="90123456">
                 </div>
+            </div>
 
-                <!-- Description -->
-                <div class="mb-6">
-                    <label class="block text-gray-700 text-sm font-bold mb-2">
-                        <i class="fas fa-file-alt mr-2"></i>Description
-                    </label>
-                    <textarea name="description" rows="2"
-                              class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="Objet du paiement...">{{ old('description') }}</textarea>
-                </div>
+            <div class="form-group">
+                <label><i class="fas fa-file-alt"></i> Description</label>
+                <textarea name="description"></textarea>
+            </div>
 
-                <!-- Bouton de soumission -->
-                <button type="submit" 
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded transition duration-300">
-                    <i class="fas fa-credit-card mr-2"></i>Procéder au paiement
-                </button>
+            <button type="submit" class="btn">
+                <i class="fas fa-credit-card"></i> Procéder au paiement
+            </button>
 
-                <!-- Sécurité -->
-                <div class="mt-4 text-center">
-                    <p class="text-gray-500 text-sm">
-                        <i class="fas fa-shield-alt text-green-500 mr-1"></i>
-                        Paiement 100% sécurisé par FedaPay
-                    </p>
-                </div>
-            </form>
-        </div>
+            <p class="secure">
+                <i class="fas fa-shield-alt"></i>
+                Paiement 100% sécurisé par FedaPay
+            </p>
+                  
+            <a class="secure" href="{{ route('home') }}">
+                Retourner à l'accueil
+            </a>
+
+        </form>
+
     </div>
+
+</div>
+
 </body>
 </html>
+<style>
+    body{
+    background:#fafafa;
+    font-family: 'Roboto', sans-serif;
+}
+
+.container{
+    max-width:500px;
+    margin:auto;
+    padding:40px 15px;
+}
+
+.card{
+    background:#fff;
+    border-radius:10px;
+    box-shadow:0 3px 15px rgba(0,0,0,0.1);
+    overflow:hidden;
+}
+
+.header{
+    background:#F3DE2C;
+    padding:20px;
+    text-align:center;
+}
+
+.header h1{
+    margin:0;
+    color:#111;
+}
+
+.header p{
+    font-size:14px;
+    color:#333;
+}
+
+.form{
+    padding:25px;
+}
+
+.form-group{
+    margin-bottom:18px;
+}
+
+label{
+    font-weight:bold;
+    font-size:14px;
+    margin-bottom:6px;
+    display:block;
+    color:#333;
+}
+
+input, textarea{
+    width:100%;
+    padding:12px;
+    border:1px solid #ddd;
+    border-radius:8px;
+    font-size:15px;
+}
+
+.row{
+    display:flex;
+    gap:12px;
+}
+
+.phone{
+    display:flex;
+}
+
+.phone span{
+    background:#eee;
+    padding:12px;
+    border:1px solid #ddd;
+    border-right:none;
+    border-radius:8px 0 0 8px;
+}
+
+.phone input{
+    border-radius:0 8px 8px 0;
+}
+
+.btn{
+    width:100%;
+    background:#F3DE2C;
+    color:#000;
+    padding:14px;
+    border:none;
+    border-radius:8px;
+    font-size:16px;
+    cursor:pointer;
+    font-weight:bold;
+    transition:.2s;
+}
+
+.btn:hover{
+    background:#e2cd24;
+}
+
+.secure{
+    text-align:center;
+    margin-top:15px;
+    font-size:13px;
+    color:#444;
+}
+
+</style>

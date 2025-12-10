@@ -28,7 +28,7 @@
 À travers des cadeaux, des vivres, des fournitures scolaires, des vêtements et d’autres dons, nous voulons leur rappeler qu’ils comptent, qu’ils sont aimés et qu’ils méritent de sourire comme tous les enfants du monde.
 
 C’est aussi une occasion de sensibiliser, d’encourager l’entraide et de montrer qu’ensemble, nous pouvons changer quelque chose — même avec un geste simple.</p>
-        <a href="{{route('paiement')}}" class="cta-btn">Cotas actuel</a>
+       
   <p class="vote-text">
             Votre soutien compte ! <strong>Faites un don et participez à changer des vies !</strong>
         </p>

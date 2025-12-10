@@ -118,7 +118,9 @@ a {
     border-radius: 8px;
     transition: 0.3s;
 }
-
+main a{
+    text-decoration: none;
+}
 .cta-btn:hover {
     filter: brightness(0.9);
 }
@@ -280,5 +282,69 @@ footer{
     padding: 1rem 0;
     background-color: #fcfae8;
     color: #1a1919;
+}
+/* ------- RESPONSIVE PAYMENT PAGE ------- */
+
+@media (max-width: 1024px) {
+
+    .payment-card {
+        padding: 20px !important;
+    }
+}
+
+@media (max-width: 900px) {
+    .grid {
+        display: block !important;
+    }
+
+    .payment-card {
+        margin-bottom: 2rem;
+    }
+
+    .payment-card h2 {
+        text-align: center;
+    }
+
+    .amount-option {
+        padding: 14px !important;
+    }
+
+    .space-y-6 {
+        margin-top: 2rem;
+    }
+}
+
+@media (max-width: 600px) {
+
+    body {
+        padding: 10px !important;
+    }
+
+    .payment-card, 
+    .bg-white,
+    .bg-gradient-to-r {
+        padding: 15px !important;
+    }
+
+    input, button {
+        font-size: 14px !important;
+    }
+
+    .text-4xl {
+        font-size: 1.8rem !important;
+    }
+}
+
+@media (max-width:480px){
+
+    .amount-option{
+        font-size: 14px;
+        padding: 10px;
+    }
+
+    button {
+        padding: 12px !important;
+        font-size: 14px !important;
+    }
 }
 
