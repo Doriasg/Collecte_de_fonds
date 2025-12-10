@@ -87,11 +87,11 @@
                         </div>
                         <input type="text" name="phone" 
                                value="{{ old('phone', auth()->user()->phone ?? '') }}"
-                               placeholder="90123456"
+                               placeholder="0159090501"
                                class="w-full px-3 py-2 border border-gray-300 rounded-r focus:outline-none focus:ring-2 focus:ring-blue-500"
                                required>
                     </div>
-                    <p class="text-gray-500 text-xs mt-1">Format: +22990123456</p>
+                    <p class="text-gray-500 text-xs mt-1">Format: +2290159090501</p>
                 </div>
 
                 <!-- Description -->

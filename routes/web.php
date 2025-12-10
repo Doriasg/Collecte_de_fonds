@@ -35,6 +35,10 @@ Route::prefix('paiement')->name('payment.')->group(function () {
         ->name('check-status');
 });
 
+Route::prefix('paiement')->name('payment.')->group(function () {
+    Route::get('/waiting/{id}', [PaymentController::class, 'waiting'])->name('waiting');
+});
+
 // Accepte GET et POST pour le webhook
 Route::match(['GET', 'POST'], '/fedapay/webhook', [PaymentController::class, 'webhook'])
     ->name('payment.webhook')

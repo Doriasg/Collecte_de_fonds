@@ -24,9 +24,6 @@
                     <a href="{{ route('admin.payments.dashboard') }}" class="text-gray-600 hover:text-gray-900">
                         <i class="fas fa-chart-bar mr-1"></i> Dashboard
                     </a>
-                    <a href="{{ route('admin.payments.export') }}" class="text-green-600 hover:text-green-800">
-                        <i class="fas fa-download mr-1"></i> Exporter
-                    </a>
                 </div>
             </div>
         </div>

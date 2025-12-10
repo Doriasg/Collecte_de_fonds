@@ -1136,61 +1136,7 @@ class PaymentController extends Controller{
         return response()->json(['status' => 'success']);
     }
 
-    /**
-     * Gérer le callback GET de FedaPay (redirection après paiement)
-     */
-    private function handleFedapayGetCallback(Request $request)
-    {
-        $transactionId = $request->get('id');
-        $status = $request->get('status');
-        $close = $request->get('close', false);
-        
-        Log::info('🎯 Traitement callback GET FedaPay', [
-            'transaction_id' => $transactionId,
-            'status' => $status,
-            'close' => $close
-        ]);
-        
-        // Trouver le paiement par transaction_id
-        $payment = Payment::where('transaction_id', $transactionId)->first();
-        
-        if (!$payment) {
-            Log::error('❌ Paiement non trouvé pour callback GET', ['transaction_id' => $transactionId]);
-            
-            // Rediriger vers une page d'erreur
-            return redirect()->route('payment.create')
-                ->with('error', 'Transaction non trouvée. ID: ' . $transactionId);
-        }
-        
-        // Mettre à jour le statut
-        $oldStatus = $payment->status;
-        $payment->update([
-            'status' => $status,
-            'payment_method' => $request->get('mode', $payment->payment_method)
-        ]);
-        
-        Log::info('✅ Statut mis à jour via callback GET', [
-            'payment_id' => $payment->id,
-            'old_status' => $oldStatus,
-            'new_status' => $status
-        ]);
-        
-        // Si le paiement est réussi
-        if ($status === 'approved') {
-            $payment->markAsPaid($request->get('mode'));
-            Log::info('💰 Paiement approuvé via callback GET', ['payment_id' => $payment->id]);
-        }
-        
-        // ==== REDIRECTION FINALE ====
-        // Rediriger vers la page appropriée
-        return $this->redirectToPaymentResult($payment, $close === 'true');
-    }
-
-    /**
-     * Rediriger vers la page de résultat
-     */
-    private function redirectToPaymentResult(Payment $payment, bool $closeWindow = false)
-    {
+    private function redirectToPaymentResult(Payment $payment, bool $closeWindow = false){
         $route = $payment->isSuccessful() ? 'payment.success' : 'payment.failed';
         
         // Si close=true, afficher une page avec JavaScript pour fermer la fenêtre
@@ -1220,6 +1166,155 @@ class PaymentController extends Controller{
         ];
         
         return $messages[$status] ?? 'Transaction terminée.';
+    }
+
+    /**
+     * Gérer le callback GET de FedaPay (redirection après paiement)
+     */
+    private function handleFedapayGetCallback(Request $request)
+    {
+        $transactionId = $request->get('id');
+        $status = $request->get('status');
+        $close = $request->get('close', false);
+        
+        Log::info('🎯 Traitement callback GET FedaPay', [
+            'transaction_id' => $transactionId,
+            'status_param' => $status,
+            'close' => $close
+        ]);
+        
+        // Trouver le paiement
+        $payment = Payment::where('transaction_id', $transactionId)->first();
+        
+        if (!$payment) {
+            Log::error('❌ Paiement non trouvé', ['transaction_id' => $transactionId]);
+            return redirect()->route('payment.create')
+                ->with('error', 'Transaction non trouvée');
+        }
+        
+        // ==== IMPORTANT ====
+        // FedaPay envoie souvent "pending" même après paiement
+        // Il faut FORCÉMENT vérifier le statut réel auprès de l'API
+        try {
+            $this->initializeFedapay();
+            $transaction = \FedaPay\Transaction::retrieve($transactionId);
+            
+            $realStatus = $transaction->status;
+            Log::info('🔍 Statut réel depuis API FedaPay', [
+                'param_status' => $status,
+                'api_status' => $realStatus
+            ]);
+            
+            // Utiliser le statut réel de l'API, pas celui du paramètre
+            $status = $realStatus;
+            
+        } catch (\Exception $e) {
+            Log::warning('⚠️ Impossible de vérifier le statut FedaPay', [
+                'error' => $e->getMessage(),
+                'using_param_status' => $status
+            ]);
+        }
+        
+        // Mettre à jour le statut (avec le vrai statut si disponible)
+        $oldStatus = $payment->status;
+        
+        if ($status !== $oldStatus) {
+            $payment->update([
+                'status' => $status,
+                'payment_method' => $request->get('mode', $payment->payment_method)
+            ]);
+            
+            Log::info('✅ Statut mis à jour', [
+                'payment_id' => $payment->id,
+                'old_status' => $oldStatus,
+                'new_status' => $status
+            ]);
+            
+            // Si le paiement est réussi
+            if ($status === 'approved') {
+                $payment->markAsPaid($request->get('mode'));
+                Log::info('💰 Paiement approuvé', ['payment_id' => $payment->id]);
+            }
+        }
+        
+        // ==== GESTION DE LA REDIRECTION ====
+        // FedaPay envoie close=true pour fermer l'iframe/popup
+        if ($close === 'true') {
+            return $this->handleCloseWindow($payment, $status);
+        }
+        
+        // Sinon, rediriger normalement
+        return $this->redirectBasedOnRealStatus($payment);
+    }
+
+    /**
+     * Gérer la fermeture de fenêtre (close=true)
+     */
+    private function handleCloseWindow(Payment $payment, $status)
+    {
+        // Afficher une page intermédiaire qui ferme la fenêtre et redirige
+        return view('payment.close-window', [
+            'payment' => $payment,
+            'status' => $status,
+            'redirect_url' => $this->getResultUrl($payment)
+        ]);
+    }
+
+    /**
+     * Rediriger selon le statut réel
+     */
+    private function redirectBasedOnRealStatus(Payment $payment)
+    {
+        // Attendre 2 secondes pour laisser FedaPay mettre à jour le statut
+        sleep(2);
+        
+        // Vérifier à nouveau le statut
+        $this->syncPaymentStatus($payment);
+        
+        // Rediriger
+        if ($payment->isSuccessful()) {
+            return redirect()->route('payment.success', $payment->id)
+                ->with('success', '✅ Paiement réussi !');
+        } elseif ($payment->isFailed()) {
+            return redirect()->route('payment.failed', $payment->id)
+                ->with('error', $this->getErrorMessage($payment->status));
+        } else {
+            // Toujours pending - montrer une page d'attente
+            return redirect()->route('payment.waiting', $payment->id)
+                ->with('info', '⏳ Vérification du paiement en cours...');
+        }
+    }
+
+    /**
+     * Obtenir l'URL de résultat
+     */
+    private function getResultUrl(Payment $payment)
+    {
+        if ($payment->isSuccessful()) {
+            return route('payment.success', $payment->id);
+        } elseif ($payment->isFailed()) {
+            return route('payment.failed', $payment->id);
+        } else {
+            return route('payment.waiting', $payment->id);
+        }
+    }
+
+    /**
+     * Page d'attente (si le statut est toujours pending)
+     */
+    public function waiting($id)
+    {
+        $payment = Payment::findOrFail($id);
+        
+        // Vérifier périodiquement
+        $this->syncPaymentStatus($payment);
+        
+        // Si le statut a changé, rediriger
+        if (!$payment->isPending()) {
+            return $this->redirectBasedOnRealStatus($payment);
+        }
+        
+        return view('payment.waiting', compact('payment'));
     }
 
 }

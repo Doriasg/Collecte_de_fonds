@@ -152,13 +152,6 @@
                             </a>
                         @endif
                         
-                        @if($payment->isSuccessful() && !$payment->is_refunded)
-                            <button onclick="confirmRefund()"
-                               class="w-full bg-purple-600 text-white py-2 px-4 rounded flex items-center justify-center hover:bg-purple-700">
-                                <i class="fas fa-undo mr-2"></i> Rembourser le paiement
-                            </button>
-                        @endif
-                        
                         <a href="javascript:window.print()"
                            class="w-full bg-gray-600 text-white py-2 px-4 rounded flex items-center justify-center hover:bg-gray-700">
                             <i class="fas fa-print mr-2"></i> Imprimer le reçu
@@ -205,22 +198,6 @@
                         </div>
                     </div>
                 @endif
-
-                <!-- Notes rapides -->
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold text-gray-800 mb-4">Ajouter une note</h2>
-                    
-                    <form id="noteForm">
-                        @csrf
-                        <textarea name="notes" rows="3" 
-                                  class="w-full border border-gray-300 rounded p-2 mb-3"
-                                  placeholder="Ajoutez une note interne...">{{ $payment->notes }}</textarea>
-                        <button type="submit" 
-                                class="w-full bg-yellow-600 text-white py-2 px-4 rounded hover:bg-yellow-700">
-                            <i class="fas fa-save mr-2"></i> Enregistrer
-                        </button>
-                    </form>
-                </div>
             </div>
         </div>
     </div>
