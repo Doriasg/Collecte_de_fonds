@@ -19,7 +19,7 @@
         <h1 class="logo">Mission Sourires</h1>
 
 
-        <a href="#contact" class="mobilemoney-btn">Contacter</a>
+        <a href="{{route('payment.create')}}" class="mobilemoney-btn">Faire un don</a>
     </nav>
 </header>
 
