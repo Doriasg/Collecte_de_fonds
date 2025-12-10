@@ -78,13 +78,6 @@
                     Retour à l'accueil
                 </a>
 
-                <!-- Voir l'historique -->
-                <a href="#" 
-                   class="block w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-xl transition duration-300 text-center transform hover:-translate-y-1">
-                    <i class="fas fa-history mr-2"></i>
-                    Voir l'historique des paiements
-                </a>
-
                 <!-- Télécharger le reçu -->
                 <button onclick="window.print()"
                    class="block w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-xl transition duration-300 text-center">

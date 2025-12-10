@@ -254,8 +254,23 @@ a {
 }
 .partenaires{
     text-align: center;
+    
 
 }
+nav a{
+    text-decoration: none;
+}
+.partenaires-img{
+display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.images{
+    width: 100%;
+    height: 30%;
+    
+}
+
 #carouselExampleDark{
     display: flex;
     align-items: center;

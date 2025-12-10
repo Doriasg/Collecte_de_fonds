@@ -71,8 +71,9 @@
                 </a>
 
                 <!-- Contacter le support -->
-                <a href="mailto:support@votredomaine.com?subject=Problème paiement {{ $payment->reference }}" 
-                   class="block w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-xl transition duration-300 text-center">
+                <a href="mailto:instiswomeninaction@gmail.com?subject=Problème paiement {{ $payment->reference }}" 
+                   class="block w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-xl transition duration-300 text-center"
+                   target="_blank">
                     <i class="fas fa-headset mr-2"></i>
                     Contacter le support
                 </a>

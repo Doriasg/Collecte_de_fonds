@@ -11,30 +11,36 @@ Route::get('/', function () {
 
 Route::get('/paiement', [PaymentController::class, 'create'])->name('payment.create');
 
-
+// Routes de paiement
 Route::prefix('paiement')->name('payment.')->group(function () {
-
+    // Page de paiement
     Route::get('/', [PaymentController::class, 'create'])->name('create');
     
+    // Traitement du paiement
     Route::post('/process', [PaymentController::class, 'process'])->name('process');
     
+    // Confirmation avec redirection
     Route::get('/confirm/{id}', [PaymentController::class, 'confirm'])->name('confirm');
     
+    // Callback FedaPay (retour après paiement)
     Route::get('/callback/{token}/{status}', [PaymentController::class, 'callback'])
         ->name('callback');
     
+    // Pages de résultat
     Route::get('/success/{id}', [PaymentController::class, 'success'])->name('success');
     Route::get('/failed/{id}', [PaymentController::class, 'failed'])->name('failed');
     
+    // Vérification AJAX du statut
     Route::get('/check-status/{id}', [PaymentController::class, 'checkStatus'])
         ->name('check-status');
 });
 
-
-Route::get('/fedapay/webhook', [PaymentController::class, 'webhook'])
+// Accepte GET et POST pour le webhook
+Route::match(['GET', 'POST'], '/fedapay/webhook', [PaymentController::class, 'webhook'])
     ->name('payment.webhook')
     ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
 
+// Gardez la route de test séparée
 Route::get('/fedapay/webhook-test', [PaymentController::class, 'webhookTest'])
     ->name('payment.webhook-test');
 

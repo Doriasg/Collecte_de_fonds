@@ -11,8 +11,8 @@ use FedaPay\Transaction;
 use FedaPay\Error\InvalidRequest;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
-
 use Illuminate\Support\Str;
+use FedaPay\Customer;
 
 class PaymentController extends Controller{
     public function create(){
@@ -207,8 +207,7 @@ class PaymentController extends Controller{
     /**
      * Initialisation FedaPay
      */
-    private function initializeFedapay()
-    {
+    private function initializeFedapay(){
         $apiKey = config('services.fedapay.secret_key');
         $env = config('services.fedapay.environment', 'live');
         
@@ -309,410 +308,319 @@ class PaymentController extends Controller{
         ];
     }
 
-    public function confirm($id)
+    public function confirmm($id)
     {
         $payment = Payment::findOrFail($id);
         
         return view('payment.confirm', compact('payment'));
     }
-
-    // Vérifier manuellement le statut
-    public function checkStatus($id)
-    {
-        $payment = Payment::findOrFail($id);
-
-        try {
-            FedaPay::setApiKey(config('services.fedapay.secret_key'));
-            
-            $transaction = Transaction::retrieve($payment->transaction_id);
-            
-            // Mettre à jour le statut
-            $payment->update([
-                'status' => $transaction->status
-            ]);
-
-            if ($transaction->status === 'approved') {
-                $payment->markAsPaid($transaction->mode);
-            }
-
-            return response()->json([
-                'status' => $payment->status,
-                'is_successful' => $payment->isSuccessful(),
-                'payment_url' => $payment->payment_url
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    // Page de succès
-    public function success($id)
+    public function confirm($id)
     {
         $payment = Payment::findOrFail($id);
         
-        if (!$payment->isSuccessful()) {
-            return redirect()->route('payment.failed', $id);
+        // Vérifier et mettre à jour le statut depuis FedaPay
+        $this->syncPaymentStatus($payment);
+        
+        // Si déjà payé, rediriger directement vers success
+        if ($payment->isSuccessful()) {
+            return redirect()->route('payment.success', $payment->id);
         }
-
-        return view('payment.success', compact('payment'));
+        
+        // Si échec, rediriger vers failed
+        if ($payment->isFailed()) {
+            return redirect()->route('payment.failed', $payment->id);
+        }
+        
+        return view('payment.confirm', compact('payment'));
     }
 
-    // Page d'échec
-    public function failed($id){
-        $payment = Payment::findOrFail($id);
-        return view('payment.failed', compact('payment'));
-    }
-
-    // Formatage du numéro de téléphone
-    private function formatPhoneNumber($phone)
+    /**
+     * Callback FedaPay - Redirection automatique après paiement
+     */
+    public function callback(Request $request, $token, $status)
     {
-        // Nettoyer le numéro
-        $phone = preg_replace('/[^0-9+]/', '', $phone);
-        
-        // Ajouter l'indicatif +229 si manquant
-        if (!str_starts_with($phone, '+')) {
-            if (str_starts_with($phone, '229')) {
-                $phone = '+' . $phone;
-            } else {
-                $phone = '+229' . ltrim($phone, '0');
-            }
-        }
-        
-        return $phone;
-    }
-
-    public function callback(Request $request, $token, $status){
         Log::info('🔙 Callback FedaPay reçu', [
             'token' => $token,
-            'status' => $status,
-            'all_params' => $request->all()
+            'status_param' => $status,
+            'query_params' => $request->all()
         ]);
-
+        
         // Trouver le paiement par token
         $payment = Payment::where('payment_token', $token)->first();
         
         if (!$payment) {
             Log::error('Paiement non trouvé pour token', ['token' => $token]);
-            return redirect()->route('payment.create')->withErrors([
-                'error' => 'Session de paiement invalide'
-            ]);
+            return redirect()->route('payment.create')
+                ->withErrors(['error' => 'Session de paiement invalide']);
         }
+        
+        // Synchroniser le statut avec FedaPay
+        $this->syncPaymentStatus($payment);
+        
+        // Rediriger selon le résultat
+        return $this->redirectBasedOnStatus($payment);
+    }
 
+    /**
+     * Synchroniser le statut d'un paiement avec FedaPay
+     */
+    private function syncPaymentStatus(Payment $payment)
+    {
         try {
-            // Mettre à jour le statut depuis FedaPay
             $this->initializeFedapay();
+            
+            // Récupérer la transaction depuis FedaPay
             $transaction = Transaction::retrieve($payment->transaction_id);
+            
+            // Récupérer les données du client si disponible
+            $customerData = null;
+            if (isset($transaction->customer) && is_numeric($transaction->customer)) {
+                try {
+                    $customerData = Customer::retrieve($transaction->customer);
+                } catch (\Exception $e) {
+                    Log::warning('Impossible de récupérer le client', ['error' => $e->getMessage()]);
+                }
+            }
             
             $oldStatus = $payment->status;
             $newStatus = $transaction->status;
             
-            $payment->update([
+            // Préparer les données de mise à jour
+            $updateData = [
                 'status' => $newStatus,
-                'payment_method' => $transaction->mode ?? null
-            ]);
-
-            Log::info('Statut mis à jour via callback', [
+                'payment_method' => $transaction->mode ?? null,
+                'transaction_reference' => $transaction->reference ?? $payment->reference,
+            ];
+            
+            // Ajouter les données du client si disponibles
+            if ($customerData) {
+                $updateData['metadata'] = array_merge(
+                    $payment->metadata ?? [],
+                    [
+                        'fedapay_customer_id' => $customerData->id,
+                        'fedapay_customer_email' => $customerData->email ?? null,
+                        'fedapay_customer_phone' => $this->extractCustomerPhone($customerData),
+                        'fedapay_customer_fullname' => $customerData->firstname . ' ' . $customerData->lastname,
+                        'fedapay_sync_at' => now()->toISOString()
+                    ]
+                );
+            }
+            
+            // Mettre à jour le paiement
+            $payment->update($updateData);
+            
+            Log::info('✅ Statut synchronisé avec FedaPay', [
                 'payment_id' => $payment->id,
                 'old_status' => $oldStatus,
                 'new_status' => $newStatus,
-                'transaction_mode' => $transaction->mode ?? null
-            ]);
-
-            // Rediriger vers la page appropriée
-            return $this->handlePaymentResult($payment);
-
-        } catch (\Exception $e) {
-            Log::error('Erreur lors du callback', [
-                'payment_id' => $payment->id ?? null,
-                'error' => $e->getMessage()
+                'transaction_id' => $transaction->id,
+                'customer_id' => $customerData->id ?? null
             ]);
             
-            // Rediriger quand même avec le statut connu
-            return $this->handlePaymentResult($payment);
+            // Si le paiement est approuvé
+            if ($newStatus === 'approved') {
+                $payment->markAsPaid($transaction->mode ?? null);
+                
+                // Actions supplémentaires après succès
+                $this->onPaymentSuccess($payment, $transaction, $customerData);
+                
+                Log::info('💰 Paiement marqué comme réussi', [
+                    'payment_id' => $payment->id,
+                    'amount' => $payment->amount
+                ]);
+            }
+            
+            return true;
+            
+        } catch (\Exception $e) {
+            Log::error('❌ Erreur synchronisation FedaPay', [
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
         }
     }
 
     /**
-     * Gérer le résultat du paiement
+     * Extraire le téléphone du client FedaPay
      */
-    private function handlePaymentResult($payment){
+    private function extractCustomerPhone($customerData)
+    {
+        // Si customerData a un champ phone_number
+        if (isset($customerData->phone_number) && is_object($customerData->phone_number)) {
+            return $customerData->phone_number->number ?? null;
+        }
+        
+        // Sinon chercher dans les métadonnées
+        if (isset($customerData->metadata) && is_array($customerData->metadata)) {
+            return $customerData->metadata['phone'] ?? 
+                   $customerData->metadata['phone_number'] ?? 
+                   $customerData->metadata['telephone'] ?? null;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Rediriger selon le statut du paiement
+     */
+    private function redirectBasedOnStatus(Payment $payment)
+    {
         switch ($payment->status) {
             case 'approved':
-                $payment->markAsPaid($payment->payment_method);
-                Log::info('Paiement approuvé', ['payment_id' => $payment->id]);
                 return redirect()->route('payment.success', $payment->id)
-                    ->with('success', 'Paiement réussi !');
-                
+                    ->with('success', '✅ Paiement réussi ! Merci pour votre confiance.');
+                    
             case 'canceled':
-                Log::info('Paiement annulé', ['payment_id' => $payment->id]);
                 return redirect()->route('payment.failed', $payment->id)
-                    ->with('error', 'Paiement annulé');
-                
+                    ->with('error', '❌ Paiement annulé. Vous pouvez réessayer.');
+                    
             case 'declined':
-                Log::info('Paiement refusé', ['payment_id' => $payment->id]);
                 return redirect()->route('payment.failed', $payment->id)
-                    ->with('error', 'Paiement refusé (solde insuffisant ou autre raison)');
-                
+                    ->with('error', '❌ Paiement refusé. Veuillez vérifier vos informations.');
+                    
             case 'pending':
             default:
-                Log::info('Paiement toujours en attente', ['payment_id' => $payment->id]);
                 return redirect()->route('payment.confirm', $payment->id)
-                    ->with('info', 'Paiement toujours en cours...');
+                    ->with('info', '⏳ Paiement en cours de traitement...');
         }
+    }
+
+    /**
+     * Vérifier le statut (AJAX)
+     */
+    public function checkStatus($id)
+    {
+        $payment = Payment::findOrFail($id);
+        
+        try {
+            // Synchroniser avec FedaPay
+            $synced = $this->syncPaymentStatus($payment);
+            
+            if (!$synced) {
+                throw new \Exception('Impossible de synchroniser avec FedaPay');
+            }
+            
+            return response()->json([
+                'success' => true,
+                'status' => $payment->status,
+                'is_successful' => $payment->isSuccessful(),
+                'payment_url' => $payment->payment_url,
+                'redirect_url' => $this->getRedirectUrl($payment)
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'status' => $payment->status
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtenir l'URL de redirection
+     */
+    private function getRedirectUrl(Payment $payment)
+    {
+        if ($payment->isSuccessful()) {
+            return route('payment.success', $payment->id);
+        } elseif ($payment->isFailed()) {
+            return route('payment.failed', $payment->id);
+        } else {
+            return route('payment.confirm', $payment->id);
+        }
+    }
+
+    /**
+     * Page de succès
+     */
+    public function success($id)
+    {
+        $payment = Payment::findOrFail($id);
+        
+        // Vérifier que le paiement est bien réussi
+        if (!$payment->isSuccessful()) {
+            return redirect()->route('payment.failed', $id)
+                ->with('warning', 'Ce paiement n\'a pas été confirmé comme réussi.');
+        }
+        
+        // Récupérer les données client FedaPay si disponibles
+        $fedapayCustomer = null;
+        if (isset($payment->metadata['fedapay_customer_id'])) {
+            try {
+                $this->initializeFedapay();
+                $fedapayCustomer = Customer::retrieve($payment->metadata['fedapay_customer_id']);
+            } catch (\Exception $e) {
+                Log::warning('Impossible de récupérer les données client', ['error' => $e->getMessage()]);
+            }
+        }
+        
+        return view('payment.success', compact('payment', 'fedapayCustomer'));
+    }
+
+    /**
+     * Page d'échec
+     */
+    public function failed($id)
+    {
+        $payment = Payment::findOrFail($id);
+        
+        $errorMessages = [
+            'canceled' => 'Vous avez annulé le paiement.',
+            'declined' => 'Paiement refusé. Raison possible : solde insuffisant, carte bloquée ou limite dépassée.',
+            'expired' => 'Le lien de paiement a expiré.',
+            'error' => 'Une erreur technique est survenue.'
+        ];
+        
+        $errorMessage = $errorMessages[$payment->status] ?? 'Le paiement a échoué.';
+        
+        return view('payment.failed', compact('payment', 'errorMessage'));
     }
 
     /**
      * Actions après succès du paiement
      */
-    private function onPaymentSuccess($payment)
+    private function onPaymentSuccess(Payment $payment, $transaction, $customerData = null)
     {
-        // 1. Envoyer un email de confirmation
+        // 1. Mettre à jour les frais et montant net
+        $this->updatePaymentFees($payment, $transaction);
+        
+        // 2. Envoyer un email de confirmation (optionnel)
         // Mail::to($payment->customer_email)->send(new PaymentConfirmation($payment));
         
-        // 2. Mettre à jour votre base de données métier
-        // Order::where('payment_id', $payment->id)->update(['status' => 'paid']);
-        
-        // 3. Notifier l'administrateur
-        // Notification::send($admin, new NewPaymentNotification($payment));
+        // 3. Notifier l'administrateur (optionnel)
+        // Notification::send(User::where('is_admin', true)->get(), new NewPaymentNotification($payment));
         
         // 4. Logger
-        Log::info('Paiement traité avec succès', [
+        Log::info('🎉 Paiement traité avec succès', [
             'payment_id' => $payment->id,
             'amount' => $payment->amount,
-            'customer' => $payment->customer_email
+            'net_amount' => $payment->net_amount,
+            'customer' => $payment->customer_email,
+            'fedapay_customer_id' => $customerData->id ?? null
         ]);
     }
 
-    // ... autres méthodes (confirm, success, failed, checkStatus, etc.) restent
-
-
-
     /**
-     * Vérifier le statut d'un paiement
+     * Mettre à jour les frais de transaction
      */
-    private function checkPaymentStatus($payment){
-        try {
-            $this->initializeFedapay();
-            $transaction = Transaction::retrieve($payment->transaction_id);
-            
-            if ($transaction->status !== $payment->status) {
-                $payment->update(['status' => $transaction->status]);
-                Log::info('Statut synchronisé', [
-                    'payment_id' => $payment->id,
-                    'new_status' => $transaction->status
-                ]);
-            }
-        } catch (\Exception $e) {
-            Log::warning('Impossible de synchroniser le statut', [
-                'payment_id' => $payment->id,
-                'error' => $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
-     * Obtenir le message d'erreur selon le statut
-     */
-    private function getErrorMessage($status)
+    private function updatePaymentFees(Payment $payment, $transaction)
     {
-        $messages = [
-            'canceled' => 'Vous avez annulé le paiement.',
-            'declined' => 'Le paiement a été refusé. Raisons possibles : solde insuffisant, carte bloquée, ou limite dépassée.',
-            'pending' => 'Le paiement est toujours en attente de confirmation.',
-            'expired' => 'Le lien de paiement a expiré.',
-            'error' => 'Une erreur technique est survenue lors du paiement.'
-        ];
+        // Récupérer les frais depuis la transaction FedaPay si disponibles
+        $fees = $transaction->fees ?? 0;
+        $commission = $transaction->commission ?? 0;
+        $fixedCommission = $transaction->fixed_commission ?? 0;
         
-        return $messages[$status] ?? 'Le paiement a échoué pour une raison inconnue.';
-    }
-    // ... autres méthodes existantes (create, process, confirm, etc.)
-    
-    /**
-     * Test du webhook - GET (pour développement)
-     */
-    public function webhookTest(Request $request)
-    {
-        Log::info('Test webhook GET appelé');
+        $totalFees = $fees + $commission + $fixedCommission;
         
-        // Données de test simulées
-        $testData = [
-            'name' => 'transaction.approved',
-            'data' => [
-                'transaction' => [
-                    'id' => $request->input('transaction_id', 'test_123'),
-                    'status' => $request->input('status', 'approved'),
-                    'mode' => $request->input('mode', 'mobile_money'),
-                    'amount' => $request->input('amount', 1000),
-                    'reference' => $request->input('reference', 'test_ref')
-                ]
-            ]
-        ];
-        
-        // Si un ID de transaction est fourni, traiter comme un vrai webhook
-        $transactionId = $request->input('transaction_id');
-        if ($transactionId) {
-            $payment = Payment::where('transaction_id', $transactionId)->first();
-            
-            if ($payment) {
-                $oldStatus = $payment->status;
-                $newStatus = $request->input('status', 'approved');
-                
-                $payment->update([
-                    'status' => $newStatus,
-                    'payment_method' => $request->input('mode', 'mobile_money')
-                ]);
-                
-                if ($newStatus === 'approved') {
-                    $payment->markAsPaid($request->input('mode', 'mobile_money'));
-                }
-                
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Paiement mis à jour',
-                    'payment_id' => $payment->id,
-                    'old_status' => $oldStatus,
-                    'new_status' => $newStatus
-                ]);
-            }
-        }
-        
-        // Sinon, afficher une page de test
-        $payments = Payment::latest()->take(5)->get();
-        
-        return view('payment.webhook-test', compact('payments', 'testData'));
-    }
-    
-    public function webhook(Request $request)
-    {
-        // Log complet de la requête
-        Log::info('Webhook FedaPay appelé', [
-            'method' => $request->method(),
-            'content_type' => $request->header('Content-Type'),
-            'user_agent' => $request->userAgent(),
-            'ip' => $request->ip(),
-            'raw_data' => $request->getContent(),
-            'all_data' => $request->all()
-        ]);
-        
-        $payload = $request->all();
-        
-        if (empty($payload)) {
-            $rawContent = $request->getContent();
-            if (!empty($rawContent)) {
-                $payload = json_decode($rawContent, true) ?? [];
-            }
-        }
-        
-        Log::info('Payload webhook analysé', ['payload' => $payload]);
-        
-        if (isset($payload['id'])) {
-            $transactionId = $payload['id'];
-            $status = $payload['status'] ?? 'pending';
-            
-            return $this->handleSimpleWebhook($transactionId, $status, $payload);
-        }
-        
-        if (isset($payload['name']) && isset($payload['data']['transaction'])) {
-            $event = $payload['name'];
-            $transactionData = $payload['data']['transaction'];
-            
-            $transactionId = $transactionData['id'];
-            $status = $transactionData['status'];
-            
-            return $this->handleFullWebhook($transactionId, $status, $transactionData, $event);
-        }
-        
-        if (isset($payload['transaction'])) {
-            $transactionData = $payload['transaction'];
-            $transactionId = $transactionData['id'] ?? null;
-            $status = $transactionData['status'] ?? 'pending';
-            
-            if ($transactionId) {
-                return $this->handleSimpleWebhook($transactionId, $status, $transactionData);
-            }
-        }
-        
-        Log::error('Format webhook non reconnu', ['payload' => $payload]);
-        return response()->json(['error' => 'Format non supporté'], 400);
-    }
-
-    private function handleSimpleWebhook($transactionId, $status, $data)
-    {
-        Log::info('Traitement webhook simple', [
-            'transaction_id' => $transactionId,
-            'status' => $status,
-            'data' => $data
-        ]);
-        
-        $payment = Payment::where('transaction_id', $transactionId)->first();
-        
-        if (!$payment) {
-            Log::error('Paiement non trouvé', ['transaction_id' => $transactionId]);
-            return response()->json(['error' => 'Transaction not found'], 404);
-        }
-        
-        $oldStatus = $payment->status;
         $payment->update([
-            'status' => $status,
-            'payment_method' => $data['mode'] ?? $data['payment_method'] ?? null
+            'fees' => $totalFees,
+            'net_amount' => $payment->amount - $totalFees
         ]);
-        
-        Log::info('Statut mis à jour (simple)', [
-            'payment_id' => $payment->id,
-            'old_status' => $oldStatus,
-            'new_status' => $status
-        ]);
-        
-        if ($status === 'approved') {
-            $payment->markAsPaid($data['mode'] ?? $data['payment_method'] ?? null);
-            Log::info('Paiement approuvé via webhook simple', ['payment_id' => $payment->id]);
-        }
-        
-        return response()->json(['status' => 'success']);
     }
 
-    private function handleFullWebhook($transactionId, $status, $transactionData, $event)
-    {
-        Log::info('Traitement webhook complet', [
-            'transaction_id' => $transactionId,
-            'status' => $status,
-            'event' => $event
-        ]);
-        
-        $payment = Payment::where('transaction_id', $transactionId)->first();
-        
-        if (!$payment) {
-            Log::error('Paiement non trouvé', ['transaction_id' => $transactionId]);
-            return response()->json(['error' => 'Transaction not found'], 404);
-        }
-        
-        $oldStatus = $payment->status;
-        $payment->update([
-            'status' => $status,
-            'payment_method' => $transactionData['mode'] ?? null,
-            'metadata' => array_merge(
-                $payment->metadata ?? [],
-                ['webhook_received' => now()->toISOString()]
-            )
-        ]);
-        
-        Log::info('Statut mis à jour (complet)', [
-            'payment_id' => $payment->id,
-            'old_status' => $oldStatus,
-            'new_status' => $status,
-            'event' => $event
-        ]);
-        
-        if ($status === 'approved') {
-            $payment->markAsPaid($transactionData['mode'] ?? null);
-            Log::info('Paiement approuvé via webhook complet', ['payment_id' => $payment->id]);
-        }
-        
-        return response()->json(['status' => 'success']);
-    }
 
     public function index(Request $request){
         
@@ -977,6 +885,341 @@ class PaymentController extends Controller{
         
         return $data;
     }
+    // Formatage du numéro de téléphone
+    private function formatPhoneNumber($phone){
+        // Nettoyer le numéro
+        $phone = preg_replace('/[^0-9+]/', '', $phone);
+        
+        // Ajouter l'indicatif +229 si manquant
+        if (!str_starts_with($phone, '+')) {
+            if (str_starts_with($phone, '229')) {
+                $phone = '+' . $phone;
+            } else {
+                $phone = '+229' . ltrim($phone, '0');
+            }
+        }
+        
+        return $phone;
+    }
+
+    /**
+     * Gérer le résultat du paiement
+     */
+    private function handlePaymentResult($payment){
+        switch ($payment->status) {
+            case 'approved':
+                $payment->markAsPaid($payment->payment_method);
+                Log::info('Paiement approuvé', ['payment_id' => $payment->id]);
+                return redirect()->route('payment.success', $payment->id)
+                    ->with('success', 'Paiement réussi !');
+                
+            case 'canceled':
+                Log::info('Paiement annulé', ['payment_id' => $payment->id]);
+                return redirect()->route('payment.failed', $payment->id)
+                    ->with('error', 'Paiement annulé');
+                
+            case 'declined':
+                Log::info('Paiement refusé', ['payment_id' => $payment->id]);
+                return redirect()->route('payment.failed', $payment->id)
+                    ->with('error', 'Paiement refusé (solde insuffisant ou autre raison)');
+                
+            case 'pending':
+            default:
+                Log::info('Paiement toujours en attente', ['payment_id' => $payment->id]);
+                return redirect()->route('payment.confirm', $payment->id)
+                    ->with('info', 'Paiement toujours en cours...');
+        }
+    }
+
+    /**
+     * Vérifier le statut d'un paiement
+     */
+    private function checkPaymentStatus($payment){
+        try {
+            $this->initializeFedapay();
+            $transaction = Transaction::retrieve($payment->transaction_id);
+            
+            if ($transaction->status !== $payment->status) {
+                $payment->update(['status' => $transaction->status]);
+                Log::info('Statut synchronisé', [
+                    'payment_id' => $payment->id,
+                    'new_status' => $transaction->status
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::warning('Impossible de synchroniser le statut', [
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Obtenir le message d'erreur selon le statut
+     */
+    private function getErrorMessage($status){
+        $messages = [
+            'canceled' => 'Vous avez annulé le paiement.',
+            'declined' => 'Le paiement a été refusé. Raisons possibles : solde insuffisant, carte bloquée, ou limite dépassée.',
+            'pending' => 'Le paiement est toujours en attente de confirmation.',
+            'expired' => 'Le lien de paiement a expiré.',
+            'error' => 'Une erreur technique est survenue lors du paiement.'
+        ];
+        
+        return $messages[$status] ?? 'Le paiement a échoué pour une raison inconnue.';
+    }
+    // ... autres méthodes existantes (create, process, confirm, etc.)
     
+    /**
+     * Test du webhook - GET (pour développement)
+     */
+    public function webhookTest(Request $request){
+        Log::info('Test webhook GET appelé');
+        
+        // Données de test simulées
+        $testData = [
+            'name' => 'transaction.approved',
+            'data' => [
+                'transaction' => [
+                    'id' => $request->input('transaction_id', 'test_123'),
+                    'status' => $request->input('status', 'approved'),
+                    'mode' => $request->input('mode', 'mobile_money'),
+                    'amount' => $request->input('amount', 1000),
+                    'reference' => $request->input('reference', 'test_ref')
+                ]
+            ]
+        ];
+        
+        // Si un ID de transaction est fourni, traiter comme un vrai webhook
+        $transactionId = $request->input('transaction_id');
+        if ($transactionId) {
+            $payment = Payment::where('transaction_id', $transactionId)->first();
+            
+            if ($payment) {
+                $oldStatus = $payment->status;
+                $newStatus = $request->input('status', 'approved');
+                
+                $payment->update([
+                    'status' => $newStatus,
+                    'payment_method' => $request->input('mode', 'mobile_money')
+                ]);
+                
+                if ($newStatus === 'approved') {
+                    $payment->markAsPaid($request->input('mode', 'mobile_money'));
+                }
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Paiement mis à jour',
+                    'payment_id' => $payment->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => $newStatus
+                ]);
+            }
+        }
+        
+        // Sinon, afficher une page de test
+        $payments = Payment::latest()->take(5)->get();
+        
+        return view('payment.webhook-test', compact('payments', 'testData'));
+    }
+    private function handleSimpleWebhook($transactionId, $status, $data)
+    {
+        Log::info('Traitement webhook simple', [
+            'transaction_id' => $transactionId,
+            'status' => $status,
+            'data' => $data
+        ]);
+        
+        $payment = Payment::where('transaction_id', $transactionId)->first();
+        
+        if (!$payment) {
+            Log::error('Paiement non trouvé', ['transaction_id' => $transactionId]);
+            return response()->json(['error' => 'Transaction not found'], 404);
+        }
+        
+        $oldStatus = $payment->status;
+        $payment->update([
+            'status' => $status,
+            'payment_method' => $data['mode'] ?? $data['payment_method'] ?? null
+        ]);
+        
+        Log::info('Statut mis à jour (simple)', [
+            'payment_id' => $payment->id,
+            'old_status' => $oldStatus,
+            'new_status' => $status
+        ]);
+        
+        if ($status === 'approved') {
+            $payment->markAsPaid($data['mode'] ?? $data['payment_method'] ?? null);
+            Log::info('Paiement approuvé via webhook simple', ['payment_id' => $payment->id]);
+        }
+        
+        return response()->json(['status' => 'success']);
+    }
+
+    private function handleFullWebhook($transactionId, $status, $transactionData, $event)
+    {
+        Log::info('Traitement webhook complet', [
+            'transaction_id' => $transactionId,
+            'status' => $status,
+            'event' => $event
+        ]);
+        
+        $payment = Payment::where('transaction_id', $transactionId)->first();
+        
+        if (!$payment) {
+            Log::error('Paiement non trouvé', ['transaction_id' => $transactionId]);
+            return response()->json(['error' => 'Transaction not found'], 404);
+        }
+        
+        $oldStatus = $payment->status;
+        $payment->update([
+            'status' => $status,
+            'payment_method' => $transactionData['mode'] ?? null,
+            'metadata' => array_merge(
+                $payment->metadata ?? [],
+                ['webhook_received' => now()->toISOString()]
+            )
+        ]);
+        
+        Log::info('Statut mis à jour (complet)', [
+            'payment_id' => $payment->id,
+            'old_status' => $oldStatus,
+            'new_status' => $status,
+            'event' => $event
+        ]);
+        
+        if ($status === 'approved') {
+            $payment->markAsPaid($transactionData['mode'] ?? null);
+            Log::info('Paiement approuvé via webhook complet', ['payment_id' => $payment->id]);
+        }
+        
+        return response()->json(['status' => 'success']);
+    }
+    
+    // Dans PaymentController.php
+    public function webhook(Request $request)
+    {
+        // Log pour debug
+        Log::info('📨 Webhook appelé', [
+            'method' => $request->method(),
+            'url' => $request->fullUrl(),
+            'user_agent' => $request->userAgent(),
+            'query_params' => $request->query(),
+            'is_fedapay_callback' => $request->has('id') && $request->has('status')
+        ]);
+        
+        // ==== IMPORTANT ====
+        // Si c'est une requête GET avec des paramètres FedaPay (callback après paiement)
+        // C'est FedaPay qui redirige vers votre webhook en GET avec les infos
+        if ($request->method() === 'GET' && $request->has('id') && $request->has('status')) {
+            Log::info('🔄 Redirection FedaPay GET détectée - Traitement comme callback', [
+                'transaction_id' => $request->get('id'),
+                'status' => $request->get('status')
+            ]);
+            
+            return $this->handleFedapayGetCallback($request);
+        }
+        
+        // Si c'est une requête GET sans paramètres (vous dans le navigateur)
+        if ($request->method() === 'GET' && !$request->has('id')) {
+            Log::warning('🌐 Webhook appelé en GET depuis navigateur - Redirection vers test');
+            return redirect()->route('payment.webhook-test');
+        }
+        
+        // Sinon, c'est une requête POST normale de FedaPay
+        Log::info('🔔 Webhook FedaPay POST reçu');
+        
+        // ... votre logique webhook POST existante ...
+        
+        return response()->json(['status' => 'success']);
+    }
+
+    /**
+     * Gérer le callback GET de FedaPay (redirection après paiement)
+     */
+    private function handleFedapayGetCallback(Request $request)
+    {
+        $transactionId = $request->get('id');
+        $status = $request->get('status');
+        $close = $request->get('close', false);
+        
+        Log::info('🎯 Traitement callback GET FedaPay', [
+            'transaction_id' => $transactionId,
+            'status' => $status,
+            'close' => $close
+        ]);
+        
+        // Trouver le paiement par transaction_id
+        $payment = Payment::where('transaction_id', $transactionId)->first();
+        
+        if (!$payment) {
+            Log::error('❌ Paiement non trouvé pour callback GET', ['transaction_id' => $transactionId]);
+            
+            // Rediriger vers une page d'erreur
+            return redirect()->route('payment.create')
+                ->with('error', 'Transaction non trouvée. ID: ' . $transactionId);
+        }
+        
+        // Mettre à jour le statut
+        $oldStatus = $payment->status;
+        $payment->update([
+            'status' => $status,
+            'payment_method' => $request->get('mode', $payment->payment_method)
+        ]);
+        
+        Log::info('✅ Statut mis à jour via callback GET', [
+            'payment_id' => $payment->id,
+            'old_status' => $oldStatus,
+            'new_status' => $status
+        ]);
+        
+        // Si le paiement est réussi
+        if ($status === 'approved') {
+            $payment->markAsPaid($request->get('mode'));
+            Log::info('💰 Paiement approuvé via callback GET', ['payment_id' => $payment->id]);
+        }
+        
+        // ==== REDIRECTION FINALE ====
+        // Rediriger vers la page appropriée
+        return $this->redirectToPaymentResult($payment, $close === 'true');
+    }
+
+    /**
+     * Rediriger vers la page de résultat
+     */
+    private function redirectToPaymentResult(Payment $payment, bool $closeWindow = false)
+    {
+        $route = $payment->isSuccessful() ? 'payment.success' : 'payment.failed';
+        
+        // Si close=true, afficher une page avec JavaScript pour fermer la fenêtre
+        if ($closeWindow) {
+            return view('payment.close-redirect', [
+                'payment' => $payment,
+                'redirect_url' => route($route, $payment->id)
+            ]);
+        }
+        
+        // Sinon, rediriger normalement
+        return redirect()->route($route, $payment->id)
+            ->with('status', $payment->status)
+            ->with('message', $this->getStatusMessage($payment->status));
+    }
+
+    /**
+     * Message selon le statut
+     */
+    private function getStatusMessage($status)
+    {
+        $messages = [
+            'approved' => '✅ Paiement réussi !',
+            'canceled' => '❌ Paiement annulé.',
+            'declined' => '❌ Paiement refusé.',
+            'pending' => '⏳ Paiement en cours...'
+        ];
+        
+        return $messages[$status] ?? 'Transaction terminée.';
+    }
 
 }

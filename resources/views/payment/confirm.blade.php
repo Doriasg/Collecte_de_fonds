@@ -10,21 +10,20 @@
 <body class="bg-gray-50 min-h-screen flex items-center justify-center">
     <div class="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
         <div class="text-center">
-            <!-- Animation de chargement -->
+            <!-- Animation -->
             <div class="mb-6">
                 <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
             </div>
 
-            <!-- Titre -->
             <h1 class="text-2xl font-bold text-gray-800 mb-2">
-                <i class="fas fa-external-link-alt mr-2"></i>Redirection en cours
+                <i class="fas fa-external-link-alt mr-2"></i>Redirection vers FedaPay
             </h1>
             
             <p class="text-gray-600 mb-6">
-                Vous allez être redirigé vers la plateforme de paiement sécurisée FedaPay...
+                Vous allez être redirigé vers la plateforme de paiement sécurisée...
             </p>
 
-            <!-- Détails du paiement -->
+            <!-- Détails -->
             <div class="bg-gray-50 rounded-lg p-4 mb-6 text-left">
                 <div class="flex justify-between mb-2">
                     <span class="text-gray-600">Référence:</span>
@@ -36,7 +35,7 @@
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-600">Statut:</span>
-                    <span class="font-bold {{ $payment->status == 'pending' ? 'text-yellow-600' : 'text-blue-600' }}">
+                    <span class="font-bold status-badge" id="statusBadge">
                         {{ ucfirst($payment->status) }}
                     </span>
                 </div>
@@ -49,7 +48,7 @@
                    id="redirectBtn"
                    class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded transition duration-300 text-center">
                     <i class="fas fa-external-link-alt mr-2"></i>
-                    Redirection automatique (5s)...
+                    Payer maintenant (redirection dans <span id="countdown">5</span>s)
                 </a>
 
                 <!-- Redirection manuelle -->
@@ -57,59 +56,86 @@
                    target="_blank"
                    class="block w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded transition duration-300 text-center">
                     <i class="fas fa-credit-card mr-2"></i>
-                    Cliquez ici si la redirection ne fonctionne pas
-                </a>
-
-                <!-- Retour -->
-                <a href="{{ route('payment.create') }}" 
-                   class="block w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded transition duration-300 text-center">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Retour
+                    Ouvrir dans un nouvel onglet
                 </a>
             </div>
 
-            <!-- Message -->
-            <p class="text-gray-500 text-sm mt-6">
-                <i class="fas fa-info-circle mr-1"></i>
-                Ne fermez pas cette page pendant le paiement
-            </p>
+            <!-- Vérification automatique -->
+            <div id="statusCheck" class="mt-6 hidden">
+                <div class="flex items-center justify-center space-x-2">
+                    <div class="w-4 h-4 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                    <span class="text-sm text-gray-600">Vérification du statut...</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Script de redirection automatique -->
+    <!-- Scripts -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             let countdown = 5;
             const btn = document.getElementById('redirectBtn');
+            const statusCheck = document.getElementById('statusCheck');
+            const statusBadge = document.getElementById('statusBadge');
             
-            // Mise à jour du compte à rebours
-            const interval = setInterval(() => {
+            // Mettre à jour le badge de statut
+            function updateStatusBadge(status) {
+                const colors = {
+                    'approved': 'text-green-600',
+                    'pending': 'text-yellow-600',
+                    'canceled': 'text-red-600',
+                    'declined': 'text-red-600'
+                };
+                
+                statusBadge.className = 'font-bold ' + (colors[status] || 'text-yellow-600');
+                statusBadge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            }
+            
+            // Redirection automatique
+            const countdownInterval = setInterval(() => {
                 countdown--;
-                btn.innerHTML = `<i class="fas fa-external-link-alt mr-2"></i>Redirection automatique (${countdown}s)...`;
+                document.getElementById('countdown').textContent = countdown;
                 
                 if (countdown <= 0) {
-                    clearInterval(interval);
+                    clearInterval(countdownInterval);
                     window.location.href = "{{ $payment->payment_url }}";
                 }
             }, 1000);
             
-            // Redirection après 5 secondes
-            setTimeout(() => {
-                window.location.href = "{{ $payment->payment_url }}";
-            }, 5000);
-            
             // Vérification périodique du statut
-            const checkStatus = setInterval(() => {
+            function checkPaymentStatus() {
                 fetch("{{ route('payment.check-status', $payment->id) }}")
                     .then(response => response.json())
                     .then(data => {
-                        if (data.is_successful) {
-                            clearInterval(checkStatus);
-                            window.location.href = "{{ route('payment.success', $payment->id) }}";
+                        if (data.success) {
+                            updateStatusBadge(data.status);
+                            
+                            // Si le statut a changé et n'est plus "pending"
+                            if (data.status !== 'pending') {
+                                clearInterval(countdownInterval); // Arrêter le compte à rebours
+                                
+                                // Rediriger automatiquement selon le statut
+                                if (data.redirect_url) {
+                                    setTimeout(() => {
+                                        window.location.href = data.redirect_url;
+                                    }, 2000); // Attendre 2 secondes avant redirection
+                                }
+                            }
                         }
                     })
                     .catch(error => console.error('Erreur:', error));
-            }, 10000); // Toutes les 10 secondes
+            }
+            
+            // Vérifier immédiatement
+            checkPaymentStatus();
+            
+            // Vérifier toutes les 5 secondes
+            setInterval(checkPaymentStatus, 5000);
+            
+            // Montrer la vérification après 3 secondes
+            setTimeout(() => {
+                statusCheck.classList.remove('hidden');
+            }, 3000);
         });
     </script>
 </body>
