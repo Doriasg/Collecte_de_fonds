@@ -1,26 +1,12 @@
 import { defineConfig } from 'vite';
-import vue from '@vitejs/plugin-vue';
-import { createHtmlPlugin } from 'vite-plugin-html';
+import laravel from 'laravel-vite-plugin';
 
-// https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    vue(),
-    createHtmlPlugin({
-      inject: {
-        injectData: {
-          appUrl: process.env.APP_URL,
-        },
-      },
-    }),
-  ],
-  build: {
-    outDir: 'public/build',  // Spécifie le répertoire de sortie
-    manifest: true,  // Cela génère le fichier manifest.json
-  },
-  server: {
-    proxy: {
-      '/app': 'http://localhost',
-    },
-  },
+    plugins: [
+        laravel({
+            input: ['resources/css/app.css', 'resources/js/app.js'],
+            refresh: true,
+        }),
+    ],
 });
+
