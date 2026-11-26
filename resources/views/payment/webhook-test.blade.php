@@ -81,7 +81,9 @@
                     </div>
                     
                     <div class="bg-blue-50 border border-blue-200 rounded p-4">
-                        <h4 class="font-medium text-blue-800 mb-2">⚠️ Important</h4>
+                        <h4 class="font-medium text-blue-800 mb-2">
+                            <i class="fas fa-exclamation-circle text-blue-600 mr-2"></i>Important
+                        </h4>
                         <p class="text-sm text-blue-700">
                             FedaPay envoie les notifications via POST. Cette page GET est uniquement pour le développement.
                             En production, seule l'URL POST sera utilisée.

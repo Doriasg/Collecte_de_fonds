@@ -70,7 +70,9 @@
                 
                 <div class="space-y-3">
                     <div class="p-3 bg-red-50 rounded-lg">
-                        <p class="font-medium text-red-800">⚠️ Attention:</p>
+                        <p class="font-medium text-red-800">
+                            <i class="fas fa-exclamation-triangle text-red-600 mr-2"></i>Attention:
+                        </p>
                         <p class="text-sm text-gray-700 mt-1">Les transactions sont réelles et irréversibles</p>
                     </div>
                     
@@ -138,7 +140,7 @@
                 document.getElementById('currentMode').textContent = data.mode;
                 document.getElementById('currentKey').textContent = data.key_preview;
                 document.getElementById('currentStatus').textContent = data.is_live ? 
-                    '🟢 Production' : '🟡 Sandbox';
+                    'Production' : 'Sandbox';
                     
                 document.getElementById('currentStatus').className = 
                     data.is_live ? 'font-bold text-green-600' : 'font-bold text-yellow-600';
@@ -169,7 +171,9 @@
                         <div class="bg-green-50 border border-green-200 rounded-xl p-6">
                             <div class="flex items-center mb-4">
                                 <i class="fas fa-check-circle text-green-500 text-2xl mr-3"></i>
-                                <h3 class="text-lg font-bold text-green-800">✅ Test Sandbox réussi!</h3>
+                                <h3 class="text-lg font-bold text-green-800">
+                                    <i class="fas fa-check-circle text-green-500 mr-2"></i>Test Sandbox réussi!
+                                </h3>
                             </div>
                             <div class="space-y-3">
                                 <div class="p-3 bg-white rounded-lg">
@@ -195,7 +199,9 @@
                         <div class="bg-red-50 border border-red-200 rounded-xl p-6">
                             <div class="flex items-center mb-4">
                                 <i class="fas fa-times-circle text-red-500 text-2xl mr-3"></i>
-                                <h3 class="text-lg font-bold text-red-800">❌ Test Sandbox échoué</h3>
+                                <h3 class="text-lg font-bold text-red-800">
+                                    <i class="fas fa-times-circle text-red-500 mr-2"></i>Test Sandbox échoué
+                                </h3>
                             </div>
                             <div class="space-y-3">
                                 <div class="p-3 bg-white rounded-lg">
@@ -223,7 +229,9 @@
                     <div class="bg-red-50 border border-red-200 rounded-xl p-6">
                         <div class="flex items-center mb-4">
                             <i class="fas fa-exclamation-triangle text-red-500 text-2xl mr-3"></i>
-                            <h3 class="text-lg font-bold text-red-800">❌ Erreur réseau</h3>
+                            <h3 class="text-lg font-bold text-red-800">
+                                <i class="fas fa-times-circle text-red-500 mr-2"></i>Erreur réseau
+                            </h3>
                         </div>
                         <p class="text-red-700">Impossible de contacter le serveur</p>
                         <p class="text-sm text-gray-600 mt-2">${error.message}</p>

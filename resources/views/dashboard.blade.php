@@ -804,7 +804,7 @@
                     <button class="toggle-sidebar" id="toggleSidebar">
                         <i class="fas fa-bars"></i>
                     </button>
-                    <h2>Bonjour, {{ Auth::user()->name ?? 'Utilisateur' }} 👋</h2>
+                    <h2>Bonjour, {{ Auth::user()->name ?? 'Utilisateur' }} <i class="fas fa-hand-wave" style="color: #f39c12;"></i></h2>
                     <p>Voici votre tableau de bord personnel</p>
                 </div>
                 
@@ -832,7 +832,7 @@
 
             <!-- Message de bienvenue -->
             <div class="welcome-message">
-                <h3>🎉 Bienvenue sur votre espace !</h3>
+                <h3><i class="fas fa-star mr-2" style="color: #f39c12;"></i> Bienvenue sur votre espace !</h3>
                 <p>Vous avez 3 nouvelles notifications et 12 transactions en attente</p>
             </div>
 

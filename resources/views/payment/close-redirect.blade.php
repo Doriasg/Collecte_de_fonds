@@ -16,9 +16,9 @@
             </div>
             <h1 class="text-xl font-bold text-gray-800 mb-2">
                 @if($payment->isSuccessful())
-                    ✅ Paiement Réussi !
+                    <i class="fas fa-check-circle text-green-500 mr-2"></i> Paiement Réussi !
                 @else
-                    ⚠️ Transaction Terminée
+                    <i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i> Transaction Terminée
                 @endif
             </h1>
             <p class="text-gray-600 mb-4">

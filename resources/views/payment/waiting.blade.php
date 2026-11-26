@@ -13,7 +13,9 @@
             <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
         </div>
         
-        <h1 class="text-2xl font-bold text-gray-800 mb-2">⏳ Vérification en cours</h1>
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">
+            <i class="fas fa-clock text-blue-500 mr-2"></i> Vérification en cours
+        </h1>
         <p class="text-gray-600 mb-6">Nous confirmons le statut de votre paiement...</p>
         
         <!-- Détails -->

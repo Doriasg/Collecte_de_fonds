@@ -15,11 +15,11 @@
         
         <h1 class="text-xl font-bold text-gray-800 mb-2">
             @if($payment->status === 'approved')
-                ✅ Paiement Réussi
+                <i class="fas fa-check-circle text-green-500 mr-2"></i> Paiement Réussi
             @elseif($payment->status === 'pending')
-                ⏳ Vérification en cours
+                <i class="fas fa-clock text-blue-500 mr-2"></i> Vérification en cours
             @else
-                ❌ Transaction Terminée
+                <i class="fas fa-times-circle text-red-500 mr-2"></i> Transaction Terminée
             @endif
         </h1>
         
