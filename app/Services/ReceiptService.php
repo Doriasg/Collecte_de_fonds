@@ -17,7 +17,7 @@ class ReceiptService
     }
 
     /**
-     * Générer le PDF et l'envoyer par WhatsApp - point d'entrée principal
+     * Générer le PDF et l'envoyer par WhatsApp
      */
     public function sendReceiptAfterPayment(Payment $payment): bool
     {
@@ -52,7 +52,7 @@ class ReceiptService
             return $success;
 
         } catch (\Throwable $e) {
-            Log::error('ReceiptService: erreur', [
+            Log::error('ReceiptService: erreur envoi', [
                 'payment_id' => $payment->id,
                 'error'      => $e->getMessage(),
             ]);
@@ -70,19 +70,16 @@ class ReceiptService
             ? $payment->paid_at->setTimezone($tz)->format('d/m/Y - H:i')
             : (new \DateTime('now', $tz))->format('d/m/Y - H:i');
 
-        // URL publique du PDF (pour QR code)
+        // URL publique cible du QR code
         $pdfUrl = url('/recu/' . $payment->reference);
 
-        // Générer le QR code en SVG puis convertir en PNG base64
-        $qrCode = $this->generateQrBase64($pdfUrl);
+        // QR code — fichier PNG sur disque (chemin file://) pour DomPDF
+        $qrPath = $this->generateQrFile($pdfUrl);
 
-        // QR code — chemin fichier temporaire (plus fiable que base64 sur prod)
-        $qrCode  = $this->generateQrBase64($pdfUrl);
-
-        // Logos — chemins locaux directs pour DomPDF
-        $logoIwa     = $this->imageToBase64(public_path('images/2-1.png'));
-        $logoDglink  = $this->imageToBase64(public_path('images/DGlink.png'));
-        $logoChorale = $this->imageToBase64(public_path('images/chorale.jpg'));
+        // Logos — chemins file:// locaux
+        $logoIwa     = $this->localPath(public_path('images/2-1.png'));
+        $logoDglink  = $this->localPath(public_path('images/DGlink.png'));
+        $logoChorale = $this->localPath(public_path('images/chorale.jpg'));
 
         $data = [
             'payment'      => $payment,
@@ -95,7 +92,7 @@ class ReceiptService
             'method'       => $this->formatPaymentMethod($payment->payment_method),
             'email'        => $payment->customer_email,
             'phone'        => $payment->customer_phone,
-            'qr_base64'    => $qrCode,
+            'qr_path'      => $qrPath,
             'logo_iwa'     => $logoIwa,
             'logo_dglink'  => $logoDglink,
             'logo_chorale' => $logoChorale,
@@ -105,48 +102,63 @@ class ReceiptService
         $pdf = Pdf::loadView('pdf.receipt', $data)
             ->setPaper('a4', 'portrait')
             ->setOption('defaultFont', 'DejaVu Sans')
-            ->setOption('isRemoteEnabled', true)
+            ->setOption('isRemoteEnabled', false)
             ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('chroot', base_path())
             ->setOption('dpi', 150);
 
-        return $pdf->output();
+        $output = $pdf->output();
+
+        // Nettoyer le fichier QR temporaire
+        if ($qrPath && file_exists($qrPath)) {
+            @unlink($qrPath);
+        }
+
+        return $output;
     }
 
     /**
-     * Générer QR code PNG en base64 — avec fallback fichier temporaire pour DomPDF
+     * Générer le QR code dans un fichier PNG temporaire
+     * Retourne le chemin absolu ou '' en cas d'échec
      */
-    public function generateQrBase64(string $url): string
+    public function generateQrFile(string $url): string
     {
         try {
-            $png = QrCode::format('png')
+            $tmpPath = storage_path('app/qr_' . uniqid() . '.png');
+
+            QrCode::format('png')
                 ->size(200)
                 ->margin(1)
                 ->errorCorrection('H')
-                ->generate($url);
+                ->generate($url, $tmpPath);
 
-            return 'data:image/png;base64,' . base64_encode($png);
+            return $tmpPath;
         } catch (\Throwable $e) {
-            Log::warning('QR code génération échouée', ['error' => $e->getMessage()]);
+            Log::warning('QR code fichier échoué', ['error' => $e->getMessage()]);
             return '';
         }
     }
 
     /**
-     * Convertir une image locale en base64 pour DomPDF
+     * Retourner le chemin absolu d'une image locale
+     * DomPDF accepte les chemins absolus avec isRemoteEnabled=false
+     */
+    public function localPath(string $path): string
+    {
+        return file_exists($path) ? $path : '';
+    }
+
+    /**
+     * Convertir une image en base64 (pour l'envoi WhatsApp uniquement)
      */
     public function imageToBase64(string $path): string
     {
-        if (!file_exists($path)) {
-            return '';
-        }
+        if (!file_exists($path)) return '';
         $ext  = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         $mime = $ext === 'png' ? 'image/png' : 'image/jpeg';
         return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($path));
     }
 
-    /**
-     * Message WhatsApp de remerciement
-     */
     private function buildThankYouMessage(string $firstname, string $lastname): string
     {
         return "❤️ *MISSION SOURIRE – 2ᵉ ÉDITION*\n\n"
@@ -158,27 +170,19 @@ class ReceiptService
             . "Merci de faire partie de cette belle chaîne de solidarité !\n\n"
             . "*MISSION SOURIRE : UN DON, UN GESTE, UN SOURIRE !* 🎄\n\n"
             . "Avec gratitude,\n"
-            . "_L'équipe MISSION SOURIRE – CSCS & IWA_\n\n"
+            . "_L'équipe MISSION SOURIRE – IWA, DGlink & Chorale Ste Cathérine_\n\n"
             . "_Ci-joint votre reçu officiel de contribution._";
     }
 
-    /**
-     * Normaliser le numéro pour WhatsApp : format 229XXXXXXXXX
-     */
     private function buildWhatsappNumber(string $rawPhone): ?string
     {
         $phone = preg_replace('/[^0-9]/', '', $rawPhone);
-
         if (preg_match('/^229\d{9}$/', $phone))  return $phone;
         if (preg_match('/^0\d{9}$/', $phone))     return '229' . $phone;
         if (preg_match('/^\d{9}$/', $phone))      return '2290' . $phone;
-
         return null;
     }
 
-    /**
-     * Libellé méthode de paiement
-     */
     private function formatPaymentMethod(?string $method): string
     {
         $map = [

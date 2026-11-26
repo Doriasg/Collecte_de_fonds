@@ -113,10 +113,10 @@ Route::get('/dev/pdf-preview', function () {
 
     $svc         = app(\App\Services\ReceiptService::class);
     $pdfUrl      = url('/recu/' . $ref);
-    $qrBase64    = $svc->generateQrBase64($pdfUrl);
-    $logoIwa     = $svc->imageToBase64(public_path('images/2-1.png'));
-    $logoDglink  = $svc->imageToBase64(public_path('images/DGlink.png'));
-    $logoChorale = $svc->imageToBase64(public_path('images/chorale.jpg'));
+    $qrPath      = $svc->generateQrFile($pdfUrl);
+    $logoIwa     = $svc->localPath(public_path('images/2-1.png'));
+    $logoDglink  = $svc->localPath(public_path('images/DGlink.png'));
+    $logoChorale = $svc->localPath(public_path('images/chorale.jpg'));
 
     return view('pdf.receipt', [
         'payment'      => $payment,
@@ -129,7 +129,7 @@ Route::get('/dev/pdf-preview', function () {
         'method'       => 'MTN MOBILE MONEY',
         'email'        => 'jean.dupont@example.com',
         'phone'        => '+229 97 00 00 00',
-        'qr_base64'    => $qrBase64,
+        'qr_path'      => $qrPath,
         'logo_iwa'     => $logoIwa,
         'logo_dglink'  => $logoDglink,
         'logo_chorale' => $logoChorale,
@@ -158,10 +158,10 @@ Route::get('/dev/pdf-download', function () {
 
     $svc         = app(\App\Services\ReceiptService::class);
     $pdfUrl      = url('/recu/' . $ref);
-    $qrBase64    = $svc->generateQrBase64($pdfUrl);
-    $logoIwa     = $svc->imageToBase64(public_path('images/2-1.png'));
-    $logoDglink  = $svc->imageToBase64(public_path('images/DGlink.png'));
-    $logoChorale = $svc->imageToBase64(public_path('images/chorale.jpg'));
+    $qrPath      = $svc->generateQrFile($pdfUrl);
+    $logoIwa     = $svc->localPath(public_path('images/2-1.png'));
+    $logoDglink  = $svc->localPath(public_path('images/DGlink.png'));
+    $logoChorale = $svc->localPath(public_path('images/chorale.jpg'));
 
     $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.receipt', [
         'payment'      => $payment,
@@ -174,7 +174,7 @@ Route::get('/dev/pdf-download', function () {
         'method'       => 'MTN MOBILE MONEY',
         'email'        => 'jean.dupont@example.com',
         'phone'        => '+229 97 00 00 00',
-        'qr_base64'    => $qrBase64,
+        'qr_path'      => $qrPath,
         'logo_iwa'     => $logoIwa,
         'logo_dglink'  => $logoDglink,
         'logo_chorale' => $logoChorale,
@@ -182,10 +182,16 @@ Route::get('/dev/pdf-download', function () {
     ])->setPaper('a4', 'portrait')
       ->setOption('defaultFont', 'DejaVu Sans')
       ->setOption('isHtml5ParserEnabled', true)
-      ->setOption('isRemoteEnabled', true)
+      ->setOption('isRemoteEnabled', false)
+      ->setOption('chroot', base_path())
       ->setOption('dpi', 150);
 
-    return $pdf->stream('recu_mission_sourire_demo.pdf');
+    $output = $pdf->stream('recu_mission_sourire_demo.pdf');
+
+    // Nettoyer le QR temporaire
+    if ($qrPath && file_exists($qrPath)) @unlink($qrPath);
+
+    return $output;
 })->name('dev.pdf.download');
 
 require __DIR__.'/auth.php';
