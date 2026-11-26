@@ -184,12 +184,7 @@ Route::get('/dev/pdf-download', function () {
       ->setOption('isHtml5ParserEnabled', true)
       ->setOption('dpi', 150);
 
-    $output = $pdf->stream('recu_mission_sourire_demo.pdf');
-
-    // Nettoyer le QR temporaire
-    if ($qrPath && file_exists($qrPath)) @unlink($qrPath);
-
-    return $output;
+    return $pdf->stream('recu_mission_sourire_demo.pdf');
 })->name('dev.pdf.download');
 
 require __DIR__.'/auth.php';
