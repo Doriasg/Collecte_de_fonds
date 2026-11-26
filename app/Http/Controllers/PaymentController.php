@@ -13,6 +13,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use FedaPay\Customer;
+use App\Services\ReceiptService;
 
 class PaymentController extends Controller{
     public function create(){
@@ -586,20 +587,26 @@ class PaymentController extends Controller{
     {
         // 1. Mettre à jour les frais et montant net
         $this->updatePaymentFees($payment, $transaction);
-        
-        // 2. Envoyer un email de confirmation (optionnel)
-        // Mail::to($payment->customer_email)->send(new PaymentConfirmation($payment));
-        
-        // 3. Notifier l'administrateur (optionnel)
-        // Notification::send(User::where('is_admin', true)->get(), new NewPaymentNotification($payment));
-        
-        // 4. Logger
-        Log::info('🎉 Paiement traité avec succès', [
-            'payment_id' => $payment->id,
-            'amount' => $payment->amount,
-            'net_amount' => $payment->net_amount,
-            'customer' => $payment->customer_email,
-            'fedapay_customer_id' => $customerData->id ?? null
+
+        // 2. Envoyer le reçu PDF par WhatsApp via Convessa
+        try {
+            $receiptService = app(ReceiptService::class);
+            $receiptService->sendReceiptAfterPayment($payment);
+        } catch (\Throwable $e) {
+            // Ne pas bloquer le flux si WhatsApp échoue
+            Log::error('Erreur envoi reçu WhatsApp', [
+                'payment_id' => $payment->id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
+
+        // 3. Logger
+        Log::info('Paiement traité avec succès', [
+            'payment_id'          => $payment->id,
+            'amount'              => $payment->amount,
+            'net_amount'          => $payment->net_amount,
+            'customer'            => $payment->customer_email,
+            'fedapay_customer_id' => $customerData->id ?? null,
         ]);
     }
 

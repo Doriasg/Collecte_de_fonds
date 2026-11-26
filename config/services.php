@@ -43,4 +43,9 @@ return [
         'redirect_base' => env('FEDAPAY_REDIRECT_BASE', 'https://process.fedapay.com'),
     ],
 
+    'convessa' => [
+        'key' => env('CONVESSA_API_KEY'),
+        'url' => env('CONVESSA_API_URL', 'https://convessa.epac-uac-optica-chapter.bj'),
+    ],
+
 ];
