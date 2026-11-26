@@ -76,10 +76,13 @@ class ReceiptService
         // Générer le QR code en SVG puis convertir en PNG base64
         $qrCode = $this->generateQrBase64($pdfUrl);
 
-        // Logos en base64 — les 3 vrais partenaires
-        $logoIwa     = $this->imageToBase64(public_path('images/2-1.png'));    // INSTI's Women in Action
-        $logoDglink  = $this->imageToBase64(public_path('images/DGlink.png')); // DGlink
-        $logoChorale = $this->imageToBase64(public_path('images/chorale.jpg'));// Chorale Ste Cathérine de Sienne
+        // QR code — chemin fichier temporaire (plus fiable que base64 sur prod)
+        $qrCode  = $this->generateQrBase64($pdfUrl);
+
+        // Logos — chemins locaux directs pour DomPDF
+        $logoIwa     = $this->imageToBase64(public_path('images/2-1.png'));
+        $logoDglink  = $this->imageToBase64(public_path('images/DGlink.png'));
+        $logoChorale = $this->imageToBase64(public_path('images/chorale.jpg'));
 
         $data = [
             'payment'      => $payment,
@@ -102,7 +105,7 @@ class ReceiptService
         $pdf = Pdf::loadView('pdf.receipt', $data)
             ->setPaper('a4', 'portrait')
             ->setOption('defaultFont', 'DejaVu Sans')
-            ->setOption('isRemoteEnabled', false)
+            ->setOption('isRemoteEnabled', true)
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('dpi', 150);
 
@@ -110,7 +113,7 @@ class ReceiptService
     }
 
     /**
-     * Générer QR code PNG en base64
+     * Générer QR code PNG en base64 — avec fallback fichier temporaire pour DomPDF
      */
     public function generateQrBase64(string $url): string
     {

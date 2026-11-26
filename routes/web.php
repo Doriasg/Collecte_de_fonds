@@ -49,9 +49,7 @@ Route::get('/fedapay/webhook-test', [PaymentController::class, 'webhookTest'])
 
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/dashboard', function () {
-        return view('dashboard');
-    })->name('dashboard');
+    Route::get('/dashboard', [PaymentController::class, 'dashboard'])->name('dashboard');
 });
 
 Route::middleware('auth')->group(function () {
@@ -64,10 +62,18 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/dashboard', [PaymentController::class, 'dashboard'])->name('payments.dashboard');
-    Route::get('/payments/{id}', [PaymentController::class, 'show'])->name('payments.show');
-    Route::get('/payments/user/{userId?}', [PaymentController::class, 'userPayments'])->name('payments.user');
+    // Routes statiques AVANT la route dynamique {id}
     Route::get('/payments/export', [PaymentController::class, 'export'])->name('payments.export');
     Route::get('/payments/search', [PaymentController::class, 'search'])->name('payments.search');
+    Route::get('/payments/user/{userId?}', [PaymentController::class, 'userPayments'])->name('payments.user');
+    // Route dynamique en dernier
+    Route::get('/payments/{id}', [PaymentController::class, 'show'])->name('payments.show');
+    // Remboursement
+    Route::post('/payments/{id}/refund', [PaymentController::class, 'refund'])->name('payments.refund');
+    // Notes
+    Route::post('/payments/{id}/notes', [PaymentController::class, 'updateNotes'])->name('payments.notes');
+    // Renvoyer reçu WhatsApp
+    Route::post('/payments/{id}/resend-receipt', [PaymentController::class, 'resendReceipt'])->name('payments.resend-receipt');
 });
 
 // ===== TÉLÉCHARGEMENT REÇU PAR RÉFÉRENCE (cible du QR code) =====
@@ -176,7 +182,7 @@ Route::get('/dev/pdf-download', function () {
     ])->setPaper('a4', 'portrait')
       ->setOption('defaultFont', 'DejaVu Sans')
       ->setOption('isHtml5ParserEnabled', true)
-      ->setOption('isRemoteEnabled', false)
+      ->setOption('isRemoteEnabled', true)
       ->setOption('dpi', 150);
 
     return $pdf->stream('recu_mission_sourire_demo.pdf');

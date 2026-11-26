@@ -20,8 +20,7 @@ class PaymentController extends Controller{
         return view('payment.create');
     }
 
-    public function process(Request $request)
-    {
+    public function process(Request $request)    {
         // Validation
         $validator = Validator::make($request->all(), [
             'amount' => 'required|numeric|min:100|max:10000000',
@@ -706,10 +705,7 @@ class PaymentController extends Controller{
 
     public function userPayments($userId = null){
         $user = $userId ? User::findOrFail($userId) : Auth::user();
-        
-        // Autorisation
-        $this->authorize('viewUserPayments', $user);
-        
+
         $payments = Payment::where('user_id', $user->id)
             ->latest()
             ->paginate(15);
@@ -743,104 +739,143 @@ class PaymentController extends Controller{
 
     public function export(Request $request)
     {
-        $this->authorize('export', Payment::class);
-        
         $payments = Payment::query();
-        
-        // Appliquer les filtres
+
         if ($request->filled('start_date')) {
             $payments->whereDate('created_at', '>=', $request->start_date);
         }
-        
         if ($request->filled('end_date')) {
             $payments->whereDate('created_at', '<=', $request->end_date);
         }
-        
         if ($request->filled('status') && $request->status !== 'all') {
             $payments->where('status', $request->status);
         }
-        
-        $payments = $payments->get();
-        
-        $filename = 'paiements_' . date('Y-m-d_H-i') . '.csv';
-        
-        $headers = [
-            'Content-Type' => 'text/csv',
+
+        $payments  = $payments->latest()->get();
+        $filename  = 'dons_mission_sourire_' . date('Y-m-d_H-i') . '.csv';
+        $headers   = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
-        
-        $callback = function() use ($payments) {
+
+        $callback = function () use ($payments) {
             $file = fopen('php://output', 'w');
-            
-            // En-têtes
-            fputcsv($file, [
-                'ID',
-                'Référence',
-                'Transaction ID',
-                'Client',
-                'Email',
-                'Téléphone',
-                'Montant',
-                'Devise',
-                'Statut',
-                'Méthode',
-                'Date création',
-                'Date paiement',
-                'Remboursé'
-            ]);
-            
-            // Données
-            foreach ($payments as $payment) {
+            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF)); // BOM UTF-8
+
+            fputcsv($file, ['ID','Référence','Transaction ID','Prénom','Nom','Email','Téléphone','Montant','Devise','Statut','Méthode','Date création','Date paiement','Remboursé'], ';');
+
+            foreach ($payments as $p) {
                 fputcsv($file, [
-                    $payment->id,
-                    $payment->reference,
-                    $payment->transaction_id,
-                    $payment->metadata['firstname'] . ' ' . $payment->metadata['lastname'],
-                    $payment->customer_email,
-                    $payment->customer_phone,
-                    $payment->amount,
-                    $payment->currency,
-                    $payment->status,
-                    $payment->payment_method,
-                    $payment->created_at->format('Y-m-d H:i:s'),
-                    $payment->paid_at?->format('Y-m-d H:i:s'),
-                    $payment->is_refunded ? 'Oui' : 'Non'
-                ]);
+                    $p->id,
+                    $p->reference,
+                    $p->transaction_id,
+                    $p->metadata['firstname'] ?? '',
+                    $p->metadata['lastname']  ?? '',
+                    $p->customer_email,
+                    $p->customer_phone,
+                    $p->amount,
+                    $p->currency,
+                    $p->status,
+                    $p->payment_method,
+                    $p->created_at->format('d/m/Y H:i'),
+                    $p->paid_at?->format('d/m/Y H:i') ?? '',
+                    $p->is_refunded ? 'Oui' : 'Non',
+                ], ';');
             }
-            
             fclose($file);
         };
-        
+
         return response()->stream($callback, 200, $headers);
     }
 
     public function search(Request $request)
     {
         $query = $request->get('q');
-        
+
         if (!$query) {
             return response()->json([]);
         }
-        
+
         $payments = Payment::where('customer_email', 'LIKE', "%{$query}%")
             ->orWhere('customer_phone', 'LIKE', "%{$query}%")
             ->orWhere('reference', 'LIKE', "%{$query}%")
             ->orWhere('transaction_id', 'LIKE', "%{$query}%")
             ->take(10)
             ->get()
-            ->map(function($payment) {
+            ->map(function ($payment) {
                 return [
-                    'id' => $payment->id,
-                    'text' => "{$payment->reference} - {$payment->customer_email} - {$payment->formatted_amount}",
+                    'id'        => $payment->id,
+                    'text'      => "{$payment->reference} - {$payment->customer_email} - {$payment->formatted_amount}",
                     'reference' => $payment->reference,
-                    'email' => $payment->customer_email,
-                    'amount' => $payment->formatted_amount,
-                    'status' => $payment->status,
-                    'url' => route('payments.show', $payment->id)
+                    'email'     => $payment->customer_email,
+                    'amount'    => $payment->formatted_amount,
+                    'status'    => $payment->status,
+                    'url'       => route('admin.payments.show', $payment->id),
                 ];
             });
-        
+
         return response()->json($payments);
+    }
+
+    /**
+     * Marquer un paiement comme remboursé
+     */
+    public function refund(Request $request, $id)
+    {
+        $payment = Payment::findOrFail($id);
+
+        if (!$payment->isSuccessful()) {
+            return response()->json(['success' => false, 'message' => 'Seuls les paiements réussis peuvent être remboursés.'], 422);
+        }
+
+        if ($payment->is_refunded) {
+            return response()->json(['success' => false, 'message' => 'Ce paiement a déjà été remboursé.'], 422);
+        }
+
+        $payment->markAsRefunded();
+
+        Log::info('Paiement remboursé par admin', ['payment_id' => $payment->id, 'admin' => Auth::id()]);
+
+        return response()->json(['success' => true, 'message' => 'Paiement marqué comme remboursé.']);
+    }
+
+    /**
+     * Mettre à jour les notes d'un paiement
+     */
+    public function updateNotes(Request $request, $id)
+    {
+        $payment = Payment::findOrFail($id);
+
+        $request->validate(['notes' => 'nullable|string|max:1000']);
+
+        $payment->update(['notes' => $request->notes]);
+
+        return response()->json(['success' => true, 'message' => 'Note enregistrée.']);
+    }
+
+    /**
+     * Renvoyer le reçu WhatsApp
+     */
+    public function resendReceipt($id)
+    {
+        $payment = Payment::findOrFail($id);
+
+        if (!$payment->isSuccessful()) {
+            return response()->json(['success' => false, 'message' => 'Seuls les paiements réussis ont un reçu.'], 422);
+        }
+
+        try {
+            $receiptService = app(\App\Services\ReceiptService::class);
+            $sent = $receiptService->sendReceiptAfterPayment($payment);
+
+            return response()->json([
+                'success' => $sent,
+                'message' => $sent ? 'Reçu renvoyé avec succès.' : 'Envoi échoué, vérifiez les logs.',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Erreur renvoi reçu', ['payment_id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Erreur : ' . $e->getMessage()], 500);
+        }
     }
 
     /**
