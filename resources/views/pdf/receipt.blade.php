@@ -105,13 +105,13 @@
 <table class="header">
     <tr>
         <td class="col-l">
-            @if(!empty($logo_dglink) && file_exists($logo_dglink))
+            @if(!empty($logo_dglink))
                 <img src="{{ $logo_dglink }}" class="logo-side" alt="DGlink"/>
             @endif
             <div class="partner-name">DGlink</div>
         </td>
         <td class="col-m">
-            @if(!empty($logo_iwa) && file_exists($logo_iwa))
+            @if(!empty($logo_iwa))
                 <img src="{{ $logo_iwa }}" class="logo-center" alt="INSTI's Women in Action"/>
             @endif
             <div class="title-main">MISSION SOURIRE</div>
@@ -122,7 +122,7 @@
             </div>
         </td>
         <td class="col-r">
-            @if(!empty($logo_chorale) && file_exists($logo_chorale))
+            @if(!empty($logo_chorale))
                 <img src="{{ $logo_chorale }}" class="logo-side" style="float:right;" alt="Chorale Ste Cathérine de Sienne"/>
             @endif
             <div class="partner-name" style="text-align:right; clear:both;">Chorale Ste Cathérine de Sienne</div>
@@ -199,8 +199,8 @@
 <table class="bottom">
     <tr>
         <td class="col-qr">
-            @if(!empty($qr_path) && file_exists($qr_path))
-                <img src="{{ $qr_path }}" class="qr-img" alt="QR Code"/>
+            @if(!empty($qr_base64))
+                <img src="{{ $qr_base64 }}" class="qr-img" alt="QR Code"/>
             @else
                 <div style="width:110px;height:110px;border:1px dashed #ccc;text-align:center;padding-top:40px;font-size:8px;color:#aaa;">
                     QR indisponible

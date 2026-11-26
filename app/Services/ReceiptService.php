@@ -70,16 +70,15 @@ class ReceiptService
             ? $payment->paid_at->setTimezone($tz)->format('d/m/Y - H:i')
             : (new \DateTime('now', $tz))->format('d/m/Y - H:i');
 
-        // URL publique cible du QR code
         $pdfUrl = url('/recu/' . $payment->reference);
 
-        // QR code — fichier PNG sur disque (chemin file://) pour DomPDF
-        $qrPath = $this->generateQrFile($pdfUrl);
+        // QR code en base64 inline
+        $qrBase64    = $this->generateQrBase64($pdfUrl);
 
-        // Logos — chemins file:// locaux
-        $logoIwa     = $this->localPath(public_path('images/2-1.png'));
-        $logoDglink  = $this->localPath(public_path('images/DGlink.png'));
-        $logoChorale = $this->localPath(public_path('images/chorale.jpg'));
+        // Logos en base64 inline
+        $logoIwa     = $this->imageToBase64(public_path('images/2-1.png'));
+        $logoDglink  = $this->imageToBase64(public_path('images/DGlink.png'));
+        $logoChorale = $this->imageToBase64(public_path('images/chorale.jpg'));
 
         $data = [
             'payment'      => $payment,
@@ -92,7 +91,7 @@ class ReceiptService
             'method'       => $this->formatPaymentMethod($payment->payment_method),
             'email'        => $payment->customer_email,
             'phone'        => $payment->customer_phone,
-            'qr_path'      => $qrPath,
+            'qr_base64'    => $qrBase64,
             'logo_iwa'     => $logoIwa,
             'logo_dglink'  => $logoDglink,
             'logo_chorale' => $logoChorale,
@@ -102,61 +101,72 @@ class ReceiptService
         $pdf = Pdf::loadView('pdf.receipt', $data)
             ->setPaper('a4', 'portrait')
             ->setOption('defaultFont', 'DejaVu Sans')
-            ->setOption('isRemoteEnabled', false)
+            ->setOption('isRemoteEnabled', true)
             ->setOption('isHtml5ParserEnabled', true)
-            ->setOption('chroot', base_path())
             ->setOption('dpi', 150);
 
-        $output = $pdf->output();
-
-        // Nettoyer le fichier QR temporaire
-        if ($qrPath && file_exists($qrPath)) {
-            @unlink($qrPath);
-        }
-
-        return $output;
+        return $pdf->output();
     }
 
     /**
-     * Générer le QR code dans un fichier PNG temporaire
-     * Retourne le chemin absolu ou '' en cas d'échec
+     * Générer QR code en base64
      */
-    public function generateQrFile(string $url): string
+    public function generateQrBase64(string $url): string
     {
         try {
-            $tmpPath = storage_path('app/qr_' . uniqid() . '.png');
-
-            QrCode::format('png')
+            $png = QrCode::format('png')
                 ->size(200)
                 ->margin(1)
                 ->errorCorrection('H')
-                ->generate($url, $tmpPath);
+                ->generate($url);
 
-            return $tmpPath;
+            return 'data:image/png;base64,' . base64_encode($png);
         } catch (\Throwable $e) {
-            Log::warning('QR code fichier échoué', ['error' => $e->getMessage()]);
+            Log::warning('QR code échoué', ['error' => $e->getMessage()]);
             return '';
         }
     }
 
     /**
-     * Retourner le chemin absolu d'une image locale
-     * DomPDF accepte les chemins absolus avec isRemoteEnabled=false
+     * Générer le QR code dans un fichier temporaire (non utilisé mais gardé)
+     */
+    public function generateQrFile(string $url): string
+    {
+        try {
+            $tmpPath = storage_path('app/qr_' . uniqid() . '.png');
+            QrCode::format('png')->size(200)->margin(1)->errorCorrection('H')->generate($url, $tmpPath);
+            return $tmpPath;
+        } catch (\Throwable $e) {
+            Log::warning('QR fichier échoué', ['error' => $e->getMessage()]);
+            return '';
+        }
+    }
+
+    /**
+     * Convertir une image locale en base64
+     */
+    public function imageToBase64(string $path): string
+    {
+        if (!file_exists($path)) {
+            Log::warning('Image introuvable', ['path' => $path]);
+            return '';
+        }
+        $ext  = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mime = match($ext) {
+            'png'  => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'gif'  => 'image/gif',
+            default => 'image/png',
+        };
+        return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($path));
+    }
+
+    /**
+     * Chemin local (gardé pour compatibilité)
      */
     public function localPath(string $path): string
     {
         return file_exists($path) ? $path : '';
-    }
-
-    /**
-     * Convertir une image en base64 (pour l'envoi WhatsApp uniquement)
-     */
-    public function imageToBase64(string $path): string
-    {
-        if (!file_exists($path)) return '';
-        $ext  = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        $mime = $ext === 'png' ? 'image/png' : 'image/jpeg';
-        return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($path));
     }
 
     private function buildThankYouMessage(string $firstname, string $lastname): string
