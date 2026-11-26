@@ -8,7 +8,7 @@
         <h1>Collecte de dons</h1>
 
         <p>
-            Aidons les enfants de l’orphelinat de Nabouba à grandir dans la dignité.<br>
+            Aidons les enfants de l’orphelinat <strong>La Providence</strong> à grandir dans la dignité.<br>
             Ensemble, changeons des vies.
         </p>
 
@@ -22,7 +22,7 @@
     <div class="container">
         <h2 style="color: #FFC800;">C'est quoi Mission sourire ?</h2>
         
-          <strong>Mission Sourires</strong>  est une action solidaire menée pour offrir de la joie, du soutien et un peu de douceur aux enfants de l’orphelinat de Nabouba, surtout pendant la période de Noël.
+          <strong>Mission Sourires</strong>  est une action solidaire menée pour offrir de la joie, du soutien et un peu de douceur aux enfants de l’orphelinat La Providence, surtout pendant la période de Noël.
 
 À travers des cadeaux, des vivres, des fournitures scolaires, des vêtements et d’autres dons, nous voulons leur rappeler qu’ils comptent, qu’ils sont aimés et qu’ils méritent de sourire comme tous les enfants du monde.
 

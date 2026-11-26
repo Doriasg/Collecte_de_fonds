@@ -60,4 +60,4 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
 
 # Collecte_de_fonds
-Plateforme de collecte de fonds pour les enfants de l'orphelinat Nabouba de Lokossa>>>>>>> 31531b938bd7f30d720a22e9c84c829f6b6437f1
+Plateforme de collecte de fonds pour les enfants de l'orphelinat La Providence>>>>>>> 31531b938bd7f30d720a22e9c84c829f6b6437f1
