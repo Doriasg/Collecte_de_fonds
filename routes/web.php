@@ -182,7 +182,6 @@ Route::get('/dev/pdf-download', function () {
     ])->setPaper('a4', 'portrait')
       ->setOption('defaultFont', 'DejaVu Sans')
       ->setOption('isHtml5ParserEnabled', true)
-      ->setOption('isRemoteEnabled', true)
       ->setOption('dpi', 150);
 
     $output = $pdf->stream('recu_mission_sourire_demo.pdf');

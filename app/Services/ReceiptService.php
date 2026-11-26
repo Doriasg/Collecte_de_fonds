@@ -101,7 +101,6 @@ class ReceiptService
         $pdf = Pdf::loadView('pdf.receipt', $data)
             ->setPaper('a4', 'portrait')
             ->setOption('defaultFont', 'DejaVu Sans')
-            ->setOption('isRemoteEnabled', true)
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('dpi', 150);
 
@@ -113,6 +112,7 @@ class ReceiptService
      */
     public function generateQrBase64(string $url): string
     {
+        // Essai 1 : PNG
         try {
             $png = QrCode::format('png')
                 ->size(200)
@@ -120,11 +120,34 @@ class ReceiptService
                 ->errorCorrection('H')
                 ->generate($url);
 
-            return 'data:image/png;base64,' . base64_encode($png);
+            if (!empty($png)) {
+                $b64 = 'data:image/png;base64,' . base64_encode($png);
+                Log::info('QR PNG OK', ['size' => strlen($png)]);
+                return $b64;
+            }
         } catch (\Throwable $e) {
-            Log::warning('QR code échoué', ['error' => $e->getMessage()]);
-            return '';
+            Log::warning('QR PNG échoué', ['error' => $e->getMessage()]);
         }
+
+        // Essai 2 : SVG encodé en base64 (fonctionne même sans GD/Imagick)
+        try {
+            $svg = QrCode::format('svg')
+                ->size(200)
+                ->margin(1)
+                ->errorCorrection('H')
+                ->generate($url);
+
+            if (!empty($svg)) {
+                $b64 = 'data:image/svg+xml;base64,' . base64_encode($svg);
+                Log::info('QR SVG OK', ['size' => strlen($svg)]);
+                return $b64;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('QR SVG échoué', ['error' => $e->getMessage()]);
+        }
+
+        Log::error('QR code impossible à générer', ['url' => $url]);
+        return '';
     }
 
     /**
