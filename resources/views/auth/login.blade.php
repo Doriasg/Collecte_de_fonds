@@ -621,15 +621,8 @@
                     </button>
                 </form>
 
-                <!-- Register Link -->
+                <!-- Register Link supprimé -->
                 <div class="register-link">
-                    <p>Vous n'avez pas de compte ?</p>
-                    @if (Route::has('register'))
-                        <a href="{{ route('register') }}" class="register-btn">
-                            <i class="fas fa-user-plus"></i> Créer un compte
-                        </a>
-                    @endif
-                    
                     <div style="text-align: center; margin-top: 20px;">
                         <a href="{{ route('home') }}" class="back-home">
                             <i class="fas fa-arrow-left"></i> Retour à l'accueil
