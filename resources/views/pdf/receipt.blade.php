@@ -3,406 +3,187 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-    <title>Reçu de Contribution – Mission Sourire</title>
+    <title>Reçu de Don – Mission Sourire</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'DejaVu Sans', Arial, sans-serif;
             font-size: 11px;
-            color: #1a1a1a;
-            background: #ffffff;
+            color: #111;
+            background: #fff;
+            padding: 20px 25px 15px 25px;
         }
 
-        /* ===== CADRE EXTÉRIEUR ===== */
-        .outer-border {
-            border: 3px solid #1a1a2e;
-            margin: 10px;
-            padding: 0;
-        }
-
-        .inner-border {
-            border: 1px solid #c8a800;
-            margin: 4px;
-            padding: 0;
-        }
-
-        /* ===== EN-TÊTE ===== */
+        /* ===== EN-TÊTE 3 colonnes ===== */
         .header {
-            background: #1a1a2e;
-            padding: 18px 24px 14px 24px;
-            position: relative;
-        }
-
-        .header-top {
-            display: table;
-            width: 100%;
-        }
-
-        .header-left {
-            display: table-cell;
-            vertical-align: middle;
-            width: 25%;
-        }
-
-        .header-center {
-            display: table-cell;
-            vertical-align: middle;
-            text-align: center;
-            width: 50%;
-        }
-
-        .header-right {
-            display: table-cell;
-            vertical-align: middle;
-            text-align: right;
-            width: 25%;
-        }
-
-        .org-name {
-            font-size: 22px;
-            font-weight: bold;
-            color: #F3DE2C;
-            letter-spacing: 1px;
-            line-height: 1.1;
-        }
-
-        .org-name span {
-            color: #ffffff;
-        }
-
-        .org-subtitle {
-            font-size: 9px;
-            color: #c8c8c8;
-            letter-spacing: 2px;
-            margin-top: 3px;
-            text-transform: uppercase;
-        }
-
-        .edition-badge {
-            display: inline-block;
-            background: #F3DE2C;
-            color: #1a1a2e;
-            font-size: 9px;
-            font-weight: bold;
-            padding: 3px 10px;
-            border-radius: 10px;
-            margin-top: 6px;
-            letter-spacing: 1px;
-        }
-
-        .partner-logos {
-            font-size: 8px;
-            color: #aaaaaa;
-            text-align: right;
-        }
-
-        .partner-name {
-            font-size: 11px;
-            font-weight: bold;
-            color: #F3DE2C;
-            line-height: 1.4;
-        }
-
-        .partner-name-secondary {
-            font-size: 10px;
-            font-weight: bold;
-            color: #ffffff;
-            line-height: 1.4;
-        }
-
-        /* ===== BANDE DE TITRE ===== */
-        .title-band {
-            background: #F3DE2C;
-            padding: 10px 24px;
-            text-align: center;
-        }
-
-        .title-band h1 {
-            font-size: 15px;
-            font-weight: bold;
-            color: #1a1a2e;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
-
-        .title-band p {
-            font-size: 9px;
-            color: #333333;
-            margin-top: 2px;
-            letter-spacing: 1px;
-        }
-
-        /* ===== SOUS-TITRE ROUGE/ORANGE ===== */
-        .subtitle-band {
-            background: #2c3e50;
-            padding: 6px 24px;
-            text-align: center;
-        }
-
-        .subtitle-band p {
-            font-size: 9px;
-            color: #F3DE2C;
-            letter-spacing: 1px;
-            font-style: italic;
-        }
-
-        /* ===== SECTION NUMÉRO DE REÇU ===== */
-        .receipt-number-bar {
-            background: #f8f8f0;
-            border-top: 2px solid #F3DE2C;
-            border-bottom: 1px solid #e0e0e0;
-            padding: 8px 24px;
-            display: table;
-            width: 100%;
-        }
-
-        .receipt-number-bar .left {
-            display: table-cell;
-            vertical-align: middle;
-        }
-
-        .receipt-number-bar .right {
-            display: table-cell;
-            vertical-align: middle;
-            text-align: right;
-        }
-
-        .receipt-ref {
-            font-size: 12px;
-            font-weight: bold;
-            color: #1a1a2e;
-        }
-
-        .receipt-date {
-            font-size: 10px;
-            color: #555;
-        }
-
-        /* ===== CORPS DU DOCUMENT ===== */
-        .body-content {
-            padding: 20px 24px;
-        }
-
-        /* Section donataire */
-        .section-title {
-            font-size: 10px;
-            font-weight: bold;
-            color: #1a1a2e;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border-bottom: 2px solid #F3DE2C;
-            padding-bottom: 4px;
-            margin-bottom: 12px;
-        }
-
-        .info-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 18px;
+            margin-bottom: 6px;
         }
-
-        .info-table td {
-            padding: 7px 10px;
-            border: 1px solid #e8e8e8;
-            font-size: 10.5px;
+        .header td {
+            vertical-align: top;
+            padding: 0 6px;
         }
+        .col-l  { width: 22%; }
+        .col-m  { width: 56%; text-align: center; }
+        .col-r  { width: 22%; text-align: right; }
 
-        .info-table td.label {
-            background: #f5f5f0;
-            color: #555;
-            font-weight: bold;
-            width: 35%;
-            font-size: 10px;
-        }
+        .logo-side   { width: 60px; height: 60px; }
+        .logo-center { width: 72px; height: 72px; }
 
-        .info-table td.value {
-            color: #1a1a2e;
-            font-weight: bold;
-        }
-
-        .info-table td.value.highlight {
-            color: #c8a800;
-            font-size: 13px;
-            font-weight: bold;
-        }
-
-        /* Montant principal */
-        .amount-box {
-            background: linear-gradient(135deg, #1a1a2e, #2c3e50);
-            border: 2px solid #F3DE2C;
-            border-radius: 4px;
-            padding: 16px 20px;
-            text-align: center;
-            margin: 16px 0;
-        }
-
-        .amount-label {
-            font-size: 10px;
-            color: #aaaaaa;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-bottom: 4px;
-        }
-
-        .amount-value {
-            font-size: 28px;
-            font-weight: bold;
-            color: #F3DE2C;
-            line-height: 1;
-        }
-
-        .amount-words {
+        .partner-name {
             font-size: 9px;
-            color: #cccccc;
-            margin-top: 4px;
-            font-style: italic;
-        }
-
-        /* Statut */
-        .status-approved {
-            display: inline-block;
-            background: #27ae60;
-            color: white;
-            font-size: 10px;
             font-weight: bold;
-            padding: 4px 14px;
-            border-radius: 12px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
+            color: #111;
+            line-height: 1.4;
+            margin-top: 3px;
+        }
+        .partner-sub {
+            font-size: 7.5px;
+            color: #444;
+            line-height: 1.4;
         }
 
-        /* Message de remerciement */
-        .thanks-box {
-            background: #fffdf0;
-            border-left: 4px solid #F3DE2C;
-            border: 1px solid #e8d800;
-            padding: 14px 16px;
-            margin: 16px 0;
+        .title-main {
+            font-size: 16px;
+            font-weight: bold;
+            color: #111;
+            letter-spacing: 1.5px;
+            margin: 4px 0 2px 0;
         }
-
-        .thanks-box p {
-            font-size: 10px;
+        .title-sub {
+            font-size: 8.5px;
             color: #333;
             line-height: 1.6;
         }
 
-        .thanks-box .thanks-title {
+        /* Séparateurs */
+        .sep-double { border-top: 3px double #111; margin: 7px 0 3px 0; }
+        .sep-single { border-top: 1px solid #111; margin: 3px 0 6px 0; }
+        .sep-thin   { border-top: 1px solid #ccc; margin: 5px 0; }
+
+        /* ===== BLOC TITRE DOCUMENT ===== */
+        .doc-row {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 4px;
+        }
+        .doc-row td { vertical-align: top; padding: 0; }
+        .doc-left  { width: 55%; }
+        .doc-right { width: 45%; text-align: right; }
+
+        .edition-label {
+            font-size: 10px;
+            font-weight: bold;
+            color: #111;
+            line-height: 1.6;
+        }
+        .edition-sub {
+            font-size: 9px;
+            font-weight: normal;
+            color: #444;
+        }
+        .recu-number {
+            font-size: 15px;
+            font-weight: bold;
+            color: #111;
+        }
+        .recu-date {
+            font-size: 11px;
+            color: #111;
+            margin-top: 3px;
+        }
+
+        /* ===== CONTRIBUTEUR ===== */
+        .contrib-block {
+            margin: 8px 0 5px 0;
+            font-size: 11.5px;
+            line-height: 2;
+        }
+
+        /* ===== TABLEAU ===== */
+        .trx-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 7px 0;
+            font-size: 11px;
+        }
+        .trx-table th {
+            background: #555;
+            color: #fff;
+            padding: 6px 10px;
             font-size: 11px;
             font-weight: bold;
-            color: #1a1a2e;
-            margin-bottom: 6px;
+            border: 1px solid #555;
+        }
+        .trx-table th.r { text-align: right; }
+        .trx-table td {
+            padding: 7px 10px;
+            border: 1px solid #bbb;
+            vertical-align: top;
+            background: #fff;
+        }
+        .trx-table td.mode { width: 16%; }
+        .trx-table td.ref  { width: 65%; }
+        .trx-table td.amt  { width: 19%; text-align: right; font-weight: bold; }
+        .ref-bold { font-weight: bold; }
+        .ref-sub  { font-size: 9.5px; color: #444; }
+
+        /* Total */
+        .total-label { text-align: right; font-size: 11px; padding: 5px 0; }
+        .total-value { text-align: right; font-size: 13px; font-weight: bold;
+                       padding: 5px 10px 5px 0; width: 19%; }
+
+        /* ===== ARRÊTÉ ===== */
+        .arrete {
+            font-size: 11.5px;
+            margin: 10px 0 14px 0;
+            line-height: 1.7;
         }
 
-        /* QR / numéro de validation */
-        .validation-row {
-            display: table;
+        /* ===== BAS : QR + SIGNATURE ===== */
+        .bottom {
             width: 100%;
-            margin-top: 16px;
-            border: 1px solid #e0e0e0;
-            background: #fafafa;
+            border-collapse: collapse;
+            margin-top: 8px;
         }
+        .bottom td { vertical-align: top; padding: 0 8px; }
+        .col-qr  { width: 30%; }
+        .col-sig { width: 70%; text-align: right; }
 
-        .validation-left {
-            display: table-cell;
-            vertical-align: middle;
-            padding: 10px 14px;
-            width: 70%;
-        }
+        .qr-img    { width: 110px; height: 110px; }
+        .qr-label  { font-size: 7.5px; color: #555; margin-top: 3px; line-height: 1.4; }
 
-        .validation-right {
-            display: table-cell;
-            vertical-align: middle;
-            text-align: center;
-            padding: 10px 14px;
-            width: 30%;
-            border-left: 1px solid #e0e0e0;
-        }
-
-        .valid-code {
-            font-size: 9px;
-            font-family: monospace;
-            color: #555;
-            word-break: break-all;
-        }
+        .sig-title { font-size: 10.5px; color: #111; margin-bottom: 32px; }
+        .sig-line  { border-top: 1px solid #aaa; width: 180px; margin: 0 0 4px auto; }
+        .sig-name  { font-size: 11.5px; font-weight: bold; color: #111; }
 
         /* ===== FOOTER ===== */
         .footer {
-            background: #1a1a2e;
-            padding: 10px 24px;
-            margin-top: 10px;
+            margin-top: 16px;
+            border-top: 1px solid #ccc;
+            padding-top: 5px;
         }
+        .footer-t { width: 100%; border-collapse: collapse; }
+        .footer-t td { font-size: 8px; color: #444; padding: 0; vertical-align: middle; }
+        .footer-t td:last-child { text-align: right; }
 
-        .footer-table {
-            display: table;
-            width: 100%;
-        }
+        .flag-g { display:inline-block; width:12px; height:7px; background:#008751; }
+        .flag-y { display:inline-block; width:12px; height:7px; background:#FCD116; }
+        .flag-r { display:inline-block; width:12px; height:7px; background:#E8112D; }
 
-        .footer-left {
-            display: table-cell;
-            vertical-align: middle;
-            width: 60%;
-        }
-
-        .footer-right {
-            display: table-cell;
-            vertical-align: middle;
-            text-align: right;
-            width: 40%;
-        }
-
-        .footer p {
-            font-size: 8px;
-            color: #aaaaaa;
-            line-height: 1.6;
-        }
-
-        .footer .footer-org {
-            font-size: 9px;
-            color: #F3DE2C;
-            font-weight: bold;
-        }
-
-        .footer .footer-slogan {
-            font-size: 8px;
-            color: #cccccc;
-            font-style: italic;
-        }
-
-        /* ===== WATERMARK ===== */
+        /* Filigrane */
         .watermark {
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-35deg);
-            font-size: 72px;
+            top: 38%; left: 5%;
+            font-size: 68px;
             font-weight: bold;
-            color: rgba(243, 222, 44, 0.06);
+            color: rgba(0,0,0,0.04);
+            transform: rotate(-38deg);
             white-space: nowrap;
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        .content-wrap {
-            position: relative;
-            z-index: 1;
-        }
-
-        /* ===== SÉPARATEURS ===== */
-        .separator {
-            height: 1px;
-            background: #e0e0e0;
-            margin: 10px 0;
-        }
-
-        .gold-line {
-            height: 2px;
-            background: #F3DE2C;
-            margin: 0;
+            letter-spacing: 4px;
+            z-index: -1;
         }
     </style>
 </head>
@@ -410,170 +191,211 @@
 
 <div class="watermark">MISSION SOURIRE</div>
 
-<div class="content-wrap">
-<div class="outer-border">
-<div class="inner-border">
+{{-- ===== EN-TÊTE : 3 partenaires ===== --}}
+<table class="header">
+    <tr>
+        {{-- Gauche : DGlink --}}
+        <td class="col-l">
+            @if(!empty($logo_dglink))
+                <img src="{{ $logo_dglink }}" class="logo-side" alt="DGlink"/>
+            @endif
+            <div class="partner-name">DGlink</div>
+        </td>
 
-    <!-- EN-TÊTE -->
-    <div class="header">
-        <div class="header-top">
-            <div class="header-left">
-                <div class="partner-name">CSCS</div>
-                <div style="font-size:8px; color:#aaa; margin-top:2px;">Cercle de Solidarité<br>pour la Communauté et la Société</div>
+        {{-- Centre : INSTI's Women in Action (logo principal, plus grand) --}}
+        <td class="col-m">
+            @if(!empty($logo_iwa))
+                <img src="{{ $logo_iwa }}" class="logo-center" alt="INSTI's Women in Action"/>
+            @endif
+            <div class="title-main">MISSION SOURIRE</div>
+            <div class="title-sub">
+                <strong>Orphelinat La Providence &mdash; Bénin</strong><br>
+                Email : instiswomeninaction@gmail.com<br>
+                Organisation à but non lucratif
             </div>
-            <div class="header-center">
-                <div class="org-name">MISSION <span>SOURIRE</span></div>
-                <div class="org-subtitle">Collecte de Fonds Solidaire</div>
-                <div class="edition-badge">2ᵉ ÉDITION – 2024/2025</div>
+        </td>
+
+        {{-- Droite : Chorale Ste Cathérine de Sienne --}}
+        <td class="col-r">
+            @if(!empty($logo_chorale))
+                <img src="{{ $logo_chorale }}" class="logo-side" alt="Chorale Ste Cathérine de Sienne" style="float:right;"/>
+            @endif
+            <div class="partner-name" style="text-align:right; clear:both;">Chorale Ste Cathérine de Sienne</div>
+        </td>
+    </tr>
+</table>
+
+<div class="sep-double"></div>
+<div class="sep-single"></div>
+
+{{-- ===== TITRE + NUMÉRO + DATE ===== --}}
+<table class="doc-row">
+    <tr>
+        <td class="doc-left">
+            <div class="edition-label">
+                MISSION SOURIRE &mdash; 2&egrave;me &Eacute;DITION<br>
+                <span class="edition-sub">Collecte de Fonds Solidaire &mdash; D&eacute;cembre 2026</span>
             </div>
-            <div class="header-right">
-                <div class="partner-name-secondary">IWA</div>
-                <div style="font-size:8px; color:#aaa; margin-top:2px; text-align:right;">Initiatives des Femmes<br>pour l'Action</div>
+        </td>
+        <td class="doc-right">
+            <div class="recu-number">Reçu N° {{ strtoupper(substr($reference, -16)) }}</div>
+            <div class="recu-date">Date : <strong>{{ $date }} (GMT+1)</strong></div>
+        </td>
+    </tr>
+</table>
+
+<div class="sep-thin"></div>
+
+{{-- ===== PARTIE VERSANTE ===== --}}
+<div class="contrib-block">
+    <div>Partie versante : <strong>{{ strtoupper($lastname) }} {{ ucfirst($firstname) }} ({{ $phone }})</strong></div>
+    <div>Mode de contribution : <strong>GUICHET DE PAIEMENT NUMÉRIQUE</strong></div>
+</div>
+
+{{-- ===== TABLEAU TRANSACTION ===== --}}
+<table class="trx-table">
+    <thead>
+        <tr>
+            <th class="mode">Mode</th>
+            <th class="ref">Référence</th>
+            <th class="amt r">Montant</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="mode">{{ $method }}</td>
+            <td class="ref">
+                <span class="ref-bold">{{ strtoupper($payment->transaction_id) }}</span>
+                – MISSION SOURIRE / DON SOLIDAIRE<br>
+                <span class="ref-sub">({{ $method }})</span>
+            </td>
+            <td class="amt">{{ $amount }}</td>
+        </tr>
+    </tbody>
+</table>
+
+{{-- TOTAL --}}
+<table style="width:100%; border-collapse:collapse;">
+    <tr>
+        <td class="total-label">Montant versé</td>
+        <td class="total-value">{{ $amount }}</td>
+    </tr>
+</table>
+
+<div class="sep-thin"></div>
+
+{{-- ===== ARRÊTÉ ===== --}}
+<div class="arrete">
+    Arrêté la présente quittance à la somme de :
+    <strong>{{ \App\Helpers\NumberHelper::toWords((int) str_replace([' ', ',', '\xc2\xa0'], '', $amount)) }} ({{ $amount }}) FCFA</strong>
+</div>
+
+{{-- ===== QR CODE + SIGNATURE ===== --}}
+<table class="bottom">
+    <tr>
+        <td class="col-qr">
+            @if(!empty($qr_base64))
+                <img src="{{ $qr_base64 }}" class="qr-img" alt="QR Code"/>
+            @endif
+            <div class="qr-label">
+                Scanner pour vérifier<br>ce reçu en ligne
             </div>
-        </div>
-    </div>
+        </td>
+        <td class="col-sig">
+            <div class="sig-title">L'équipe MISSION SOURIRE</div>
+            <div class="sig-line"></div>
+            <div class="sig-name">Mission Sourire</div>
+        </td>
+    </tr>
+</table>
 
-    <!-- BANDE OR -->
-    <div class="gold-line"></div>
+{{-- ===== FOOTER ===== --}}
+<div class="footer">
+    <table class="footer-t">
+        <tr>
+            <td>
+                <span class="flag-g"></span><span class="flag-y"></span><span class="flag-r"></span>
+                &nbsp; eReçu : {{ $date }} (GMT+1)
+            </td>
+            <td style="text-align:center; color:#888;">
+                Réf. : {{ strtoupper($reference) }}
+            </td>
+            <td>
+                <span class="flag-g"></span><span class="flag-y"></span><span class="flag-r"></span>
+            </td>
+        </tr>
+    </table>
+</div>
 
-    <!-- TITRE DU DOCUMENT -->
-    <div class="title-band">
-        <h1>Reçu Officiel de Contribution</h1>
-        <p>Document institutionnel – Conserver précieusement</p>
-    </div>
+</body>
+</html>
+            <td class="mode-cell">{{ $method }}</td>
+            <td class="ref-cell">
+                <span class="ref-bold">{{ strtoupper($payment->transaction_id) }}</span>
+                – MISSION SOURIRE / DON SOLIDAIRE<br>
+                <span class="ref-sub">({{ $method }})</span>
+            </td>
+            <td class="amt-cell">{{ $amount }}</td>
+        </tr>
+    </tbody>
+</table>
 
-    <!-- BANDE SOMBRE -->
-    <div class="subtitle-band">
-        <p>L'orphelinat La Providence – Pour chaque enfant, un avenir meilleur</p>
-    </div>
+{{-- TOTAL --}}
+<table class="trx-table" style="border:none;">
+    <tr class="total-row">
+        <td style="border:none; width:85%; text-align:right; font-size:11px;">Montant versé</td>
+        <td style="border:none; width:15%; text-align:right; font-size:13px; font-weight:bold; padding-right:10px;">
+            {{ $amount }}
+        </td>
+    </tr>
+</table>
 
-    <!-- NUMÉRO DE REÇU -->
-    <div class="receipt-number-bar">
-        <div class="left">
-            <span class="receipt-ref">N° {{ strtoupper($reference) }}</span>
-        </div>
-        <div class="right">
-            <span class="receipt-date">Date : {{ $date }}</span>
-        </div>
-    </div>
+<div class="sep-thin"></div>
 
-    <!-- CORPS -->
-    <div class="body-content">
+{{-- ===== ARRÊTÉ ===== --}}
+<div class="arrete">
+    Arrêté la présente quittance à la somme de :
+    <strong>{{ \App\Helpers\NumberHelper::toWords((int) str_replace([' ', ','], '', $amount)) }} ({{ $amount }}) FCFA</strong>
+</div>
 
-        <!-- SECTION 1 : Donataire -->
-        <div class="section-title">Informations du Contributeur</div>
-        <table class="info-table">
-            <tr>
-                <td class="label">Nom & Prénom(s)</td>
-                <td class="value">{{ strtoupper($lastname) }} {{ ucfirst($firstname) }}</td>
-            </tr>
-            <tr>
-                <td class="label">Adresse e-mail</td>
-                <td class="value">{{ $email }}</td>
-            </tr>
-            <tr>
-                <td class="label">Téléphone</td>
-                <td class="value">{{ $phone }}</td>
-            </tr>
-        </table>
-
-        <!-- MONTANT PRINCIPAL -->
-        <div class="amount-box">
-            <div class="amount-label">Montant de la contribution</div>
-            <div class="amount-value">{{ $amount }} {{ $currency }}</div>
-            <div class="amount-words">Reçu avec succès via {{ $method }}</div>
-        </div>
-
-        <!-- SECTION 2 : Détails du paiement -->
-        <div class="section-title">Détails de la Transaction</div>
-        <table class="info-table">
-            <tr>
-                <td class="label">Référence</td>
-                <td class="value" style="font-family: monospace;">{{ $reference }}</td>
-            </tr>
-            <tr>
-                <td class="label">ID Transaction</td>
-                <td class="value" style="font-family: monospace;">{{ $payment->transaction_id }}</td>
-            </tr>
-            <tr>
-                <td class="label">Mode de paiement</td>
-                <td class="value">{{ $method }}</td>
-            </tr>
-            <tr>
-                <td class="label">Statut</td>
-                <td class="value">
-                    <span class="status-approved">Validé</span>
-                </td>
-            </tr>
-            <tr>
-                <td class="label">Date &amp; Heure</td>
-                <td class="value">{{ $date }}</td>
-            </tr>
-        </table>
-
-        <!-- MESSAGE DE REMERCIEMENT -->
-        <div class="thanks-box">
-            <div class="thanks-title">Message de l'équipe MISSION SOURIRE</div>
-            <p>
-                Cher(e) <strong>{{ ucfirst($firstname) }} {{ strtoupper($lastname) }}</strong>,<br><br>
-                Nous vous adressons nos plus sincères remerciements pour votre précieuse contribution à la campagne
-                <strong>Mission Sourire – 2ᵉ Édition</strong>. Grâce à votre geste généreux, vous participez activement
-                à apporter du sourire, de la dignité et de l'espoir aux enfants de l'orphelinat
-                <strong>La Providence</strong>.<br><br>
-                Chaque don, aussi modeste soit-il, représente un acte fort de solidarité humaine.
-                Votre soutien nous touche profondément et nous donne la force de continuer cette belle mission.<br><br>
-                <em>Un don, un geste, un sourire.</em>
-            </p>
-        </div>
-
-        <!-- VALIDATION -->
-        <div class="validation-row">
-            <div class="validation-left">
-                <p style="font-size:9px; color:#555; margin-bottom:4px;">
-                    <strong>Code de validation :</strong>
-                </p>
-                <div class="valid-code">{{ strtoupper(hash('crc32', $reference . $payment->transaction_id . $payment->amount)) }}-{{ strtoupper(substr($reference, -6)) }}-MS2E</div>
-                <p style="font-size:8px; color:#999; margin-top:4px;">
-                    Ce document tient lieu de reçu officiel de don et peut être présenté à des fins fiscales.
-                </p>
+{{-- ===== QR CODE + SIGNATURE ===== --}}
+<table class="bottom-table">
+    <tr>
+        <td class="col-qr">
+            @if(!empty($qr_base64))
+                <img src="{{ $qr_base64 }}" class="qr-img" alt="QR Code"/>
+            @endif
+            <div class="qr-label">
+                Scanner pour vérifier<br>
+                ce reçu en ligne
             </div>
-            <div class="validation-right">
-                <div style="font-size:8px; color:#999; text-align:center; margin-bottom:4px;">Tampon officiel</div>
-                <div style="border: 2px dashed #cccccc; width: 70px; height: 50px; margin: auto;
-                            display: flex; align-items: center; justify-content: center;
-                            font-size: 7px; color: #cccccc; text-align: center;">
-                    CSCS &amp; IWA
-                </div>
-            </div>
-        </div>
+        </td>
+        <td class="col-sig">
+            <div class="sig-title">L'équipe MISSION SOURIRE &mdash; CSCS &amp; IWA</div>
+            <div class="sig-line"></div>
+            <div class="sig-name">Mission Sourire</div>
+        </td>
+    </tr>
+</table>
 
-    </div>
-
-    <!-- BANDE OR BASSE -->
-    <div class="gold-line"></div>
-
-    <!-- FOOTER -->
-    <div class="footer">
-        <div class="footer-table">
-            <div class="footer-left">
-                <p class="footer-org">MISSION SOURIRE – CSCS &amp; IWA</p>
-                <p class="footer-slogan">« Un don, un geste, un sourire ! »</p>
-                <p style="margin-top:4px;">
-                    Ce reçu a été généré automatiquement le {{ now()->format('d/m/Y à H:i') }}.
-                    Réf. système : {{ $payment->id }}-{{ date('Y') }}
-                </p>
-            </div>
-            <div class="footer-right">
-                <p>Document officiel</p>
-                <p>Non modifiable</p>
-                <p style="margin-top:4px; color:#F3DE2C;">CSCS &amp; IWA – {{ date('Y') }}</p>
-            </div>
-        </div>
-    </div>
-
-</div><!-- /inner-border -->
-</div><!-- /outer-border -->
-</div><!-- /content-wrap -->
+{{-- ===== FOOTER ===== --}}
+<div class="footer-bar">
+    <table class="footer-table">
+        <tr>
+            <td>
+                <span class="flag-green"></span><span class="flag-yellow"></span><span class="flag-red"></span>
+                &nbsp;
+                eReçu : {{ $date }} (GMT+1)
+            </td>
+            <td style="text-align:center; color:#888;">
+                Réf. système : {{ $payment->id ?? '0' }}/2026 &mdash; {{ strtoupper($reference) }}
+            </td>
+            <td style="text-align:right;">
+                <span class="flag-green"></span><span class="flag-yellow"></span><span class="flag-red"></span>
+            </td>
+        </tr>
+    </table>
+</div>
 
 </body>
 </html>

@@ -70,4 +70,116 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/payments/search', [PaymentController::class, 'search'])->name('payments.search');
 });
 
+// ===== TÉLÉCHARGEMENT REÇU PAR RÉFÉRENCE (cible du QR code) =====
+Route::get('/recu/{reference}', function (string $reference) {
+    $payment = \App\Models\Payment::where('reference', $reference)
+        ->where('status', 'approved')
+        ->firstOrFail();
+
+    $receiptService = app(\App\Services\ReceiptService::class);
+    $pdfContent = $receiptService->generatePdf($payment);
+
+    return response($pdfContent, 200, [
+        'Content-Type'        => 'application/pdf',
+        'Content-Disposition' => 'inline; filename="recu_mission_sourire_' . $reference . '.pdf"',
+    ]);
+})->name('receipt.download');
+
+// ===== PRÉVISUALISATION PDF (développement uniquement) =====
+Route::get('/dev/pdf-preview', function () {
+    $tz   = new \DateTimeZone('Africa/Porto-Novo');
+    $date = (new \DateTime('now', $tz))->format('d/m/Y - H:i');
+    $ref  = 'trx_demo_' . strtolower(substr(md5('preview'), 0, 12));
+
+    $payment = new \App\Models\Payment([
+        'id'             => 99999,
+        'transaction_id' => 'TRX-DEMO-20261201',
+        'reference'      => $ref,
+        'amount'         => 25000,
+        'currency'       => 'XOF',
+        'status'         => 'approved',
+        'payment_method' => 'mtn',
+        'customer_email' => 'jean.dupont@example.com',
+        'customer_phone' => '+229 97 00 00 00',
+        'metadata'       => ['firstname' => 'Jean', 'lastname' => 'DUPONT'],
+        'paid_at'        => now(),
+    ]);
+
+    $svc         = app(\App\Services\ReceiptService::class);
+    $pdfUrl      = url('/recu/' . $ref);
+    $qrBase64    = $svc->generateQrBase64($pdfUrl);
+    $logoIwa     = $svc->imageToBase64(public_path('images/2-1.png'));
+    $logoDglink  = $svc->imageToBase64(public_path('images/DGlink.png'));
+    $logoChorale = $svc->imageToBase64(public_path('images/chorale.jpg'));
+
+    return view('pdf.receipt', [
+        'payment'      => $payment,
+        'firstname'    => 'Jean',
+        'lastname'     => 'DUPONT',
+        'reference'    => $ref,
+        'amount'       => number_format(25000, 0, ',', ' '),
+        'currency'     => 'XOF',
+        'date'         => $date,
+        'method'       => 'MTN MOBILE MONEY',
+        'email'        => 'jean.dupont@example.com',
+        'phone'        => '+229 97 00 00 00',
+        'qr_base64'    => $qrBase64,
+        'logo_iwa'     => $logoIwa,
+        'logo_dglink'  => $logoDglink,
+        'logo_chorale' => $logoChorale,
+        'pdf_url'      => $pdfUrl,
+    ]);
+})->name('dev.pdf.preview');
+
+Route::get('/dev/pdf-download', function () {
+    $tz   = new \DateTimeZone('Africa/Porto-Novo');
+    $date = (new \DateTime('now', $tz))->format('d/m/Y - H:i');
+    $ref  = 'trx_demo_' . strtolower(substr(md5('preview'), 0, 12));
+
+    $payment = new \App\Models\Payment([
+        'id'             => 99999,
+        'transaction_id' => 'TRX-DEMO-20261201',
+        'reference'      => $ref,
+        'amount'         => 25000,
+        'currency'       => 'XOF',
+        'status'         => 'approved',
+        'payment_method' => 'mtn',
+        'customer_email' => 'jean.dupont@example.com',
+        'customer_phone' => '+229 97 00 00 00',
+        'metadata'       => ['firstname' => 'Jean', 'lastname' => 'DUPONT'],
+        'paid_at'        => now(),
+    ]);
+
+    $svc         = app(\App\Services\ReceiptService::class);
+    $pdfUrl      = url('/recu/' . $ref);
+    $qrBase64    = $svc->generateQrBase64($pdfUrl);
+    $logoIwa     = $svc->imageToBase64(public_path('images/2-1.png'));
+    $logoDglink  = $svc->imageToBase64(public_path('images/DGlink.png'));
+    $logoChorale = $svc->imageToBase64(public_path('images/chorale.jpg'));
+
+    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.receipt', [
+        'payment'      => $payment,
+        'firstname'    => 'Jean',
+        'lastname'     => 'DUPONT',
+        'reference'    => $ref,
+        'amount'       => number_format(25000, 0, ',', ' '),
+        'currency'     => 'XOF',
+        'date'         => $date,
+        'method'       => 'MTN MOBILE MONEY',
+        'email'        => 'jean.dupont@example.com',
+        'phone'        => '+229 97 00 00 00',
+        'qr_base64'    => $qrBase64,
+        'logo_iwa'     => $logoIwa,
+        'logo_dglink'  => $logoDglink,
+        'logo_chorale' => $logoChorale,
+        'pdf_url'      => $pdfUrl,
+    ])->setPaper('a4', 'portrait')
+      ->setOption('defaultFont', 'DejaVu Sans')
+      ->setOption('isHtml5ParserEnabled', true)
+      ->setOption('isRemoteEnabled', false)
+      ->setOption('dpi', 150);
+
+    return $pdf->stream('recu_mission_sourire_demo.pdf');
+})->name('dev.pdf.download');
+
 require __DIR__.'/auth.php';
